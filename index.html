@@ -1360,9 +1360,10 @@ function toggleCheats(){
   else{const i=MAIN.indexOf('Cheats');if(i>=0)MAIN.splice(i,1);if(MENU.sel>=MAIN.length)MENU.sel=0;if(MENU.scr==='cheats')MENU.scr='main';
     [784,523,392].forEach((f,k)=>tone('square',f,f,0.1,0.05,k*0.09));showToast('Cheat mode off');}
 }
-function cheatRows(){return [['Start at stage',String(CHEAT.stage)],['Invincible',CHEAT.god?'On':'Off'],['Full power + speed',CHEAT.full?'On':'Off'],
+function cheatRows(){return [['Start at stage',String(Math.min(5,CHEAT.stage))],['Invincible',CHEAT.god?'On':'Off'],['Full power + speed',CHEAT.full?'On':'Off'],
   ['Infinite bombs',CHEAT.bombs?'On':'Off'],['Start game',null],['Back',null]];}
 function startCheatGame(){
+  CHEAT.stage=Math.min(5,Math.max(1,CHEAT.stage|0));   // there are 5 stages
   if(CHEAT.stage<=1){startIntro();}
   else{newGame(true);G.stage=CHEAT.stage;G.state='play';banner('Stage '+G.stage,2);
     const k=stageTrack(G.stage);if(A.ctx)stopMusic(0.3);M.pos={};playMusic(k,Math.max(0,MUSIC[k].drop-0.05),0.05);
@@ -1492,7 +1493,7 @@ function menuInput(a){
     if(a==='up')MENU.sel=(MENU.sel+n-1)%n;else if(a==='down')MENU.sel=(MENU.sel+1)%n;
     else if(a==='back'){MENU.scr='main';MENU.sel=MAIN.indexOf('Cheats');}
     else if(a==='left'||a==='right'||a==='ok'){const d=a==='left'?-1:1;
-      if(MENU.sel===0)CHEAT.stage=((CHEAT.stage-1+d+9)%9)+1;
+      if(MENU.sel===0)CHEAT.stage=((Math.min(5,CHEAT.stage)-1+d+5)%5)+1;
       else if(MENU.sel===1)CHEAT.god=!CHEAT.god;else if(MENU.sel===2)CHEAT.full=!CHEAT.full;else if(MENU.sel===3)CHEAT.bombs=!CHEAT.bombs;
       else if(MENU.sel===4&&a==='ok')startFromTitle();
       else if(MENU.sel===5&&a==='ok'){MENU.scr='main';MENU.sel=MAIN.indexOf('Cheats');}
