@@ -980,12 +980,13 @@ function updatePlayer(dt){
   pl.recoil=Math.max(0,pl.recoil-dt*25);
   if(pl.inv>0)pl.inv-=dt;
   pl.fireT-=dt;
-  let firing=keys.Space||keys.KeyZ||keys.KeyJ||drag.id!==null||GP.fire;
-  const charging=!!(keys.KeyV||GP.charge||CH.touch!==null);
+  const noFire=G.clearing||G.clearT>0;   // no shooting during the stage-clear transition; comes back when the next stage starts
+  let firing=!noFire&&(keys.Space||keys.KeyZ||keys.KeyJ||drag.id!==null||GP.fire);
+  const charging=!noFire&&!!(keys.KeyV||GP.charge||CH.touch!==null);
   if(charging){CH.t=Math.min(1.3,CH.t+dt);firing=false;chargeSound(true);
     const n=SHIP.ok?SHIP.nose:[16,1],[cx,cy]=shipPt(n[0],n[1],pl.x,pl.y,pl.tilt);
     if(Math.random()<Q){const a=Math.random()*TAU,r=16+Math.random()*10;const q=P(0,cx+Math.cos(a)*r,cy+Math.sin(a)*r,-Math.cos(a)*r*5,-Math.sin(a)*r*5,0.2,2,0.5,CH.t>=1.2?C.white:'#7ff3ff',0);}}
-  else if(CH.t>0){if(CH.t>=0.35)releaseBeam(CH.t);CH.t=0;chargeSound(false);}
+  else if(CH.t>0){if(CH.t>=0.35&&!noFire)releaseBeam(CH.t);CH.t=0;chargeSound(false);}
   pl.misT=(pl.misT||0)-dt;
   G.firing=firing;fireSound(firing);updateHealth(dt);
   updateDrone(dt);droneMissiles(dt);
