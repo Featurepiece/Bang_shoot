@@ -2259,9 +2259,7 @@ function titanUpdate(e,dt){
   const H0=H-6-TM.feet;e.y=H0+TCORE[1];      // feet on the floor
   if(!e.dying)e.x=W-12-Math.max(TM.legB.x+TM.legB.w,TM.torso.x+TM.torso.w,TM.podF.x+TM.podF.w)+TCORE[0]+(e.bsh||0);   // right edge just inside the screen (further left while it's built in the cradle)
   titanPose(e,dt);
-  if(e.dying){e.y+=0;e.sinkY=(e.sinkY||0)+14*dt;for(const k in e.parts){const p=e.parts[k];if(!p.dead)p.y+=e.sinkY;}
-    e.pk=(e.pk||0)-dt;if(e.pk<=0){e.pk=0.35;const live=Object.values(e.parts).filter(p=>!p.dead&&!p.key.startsWith('leg')&&p.key!=='torso');if(live.length){const p=pick(live);p.dead=true;explode(p.x,p.y,2.5,PAL_EN);for(let i=0;i<5;i++)spawnFrag(p,p.x+rnd(-10,10),p.y+rnd(-8,8),i<2);}}
-    return;}
+  if(e.dying){titanBreakup(e);return;}
   if(e.tstate==='build'){titanBuild(e,dt);return;}
   if(e.tstate==='folded'||e.tstate==='surge'){return;}
   if(e.tstate==='fight')titanHead(e,dt);
@@ -2321,6 +2319,7 @@ function titanFight(e,dt){
 }
 function drawTitan(){
   const e=G.boss&&G.boss.type==='titan'?G.boss:enemies.find(q=>q.type==='titan'&&!q.dead);if(!e)return;
+  if(e.dying)return;   // drawn as flying debris instead
   const [rx,ry]=titanRoot(e);ctx.imageSmoothingEnabled=true;
   if(e.tstate==='folded'||(e.tstate==='transform'&&e.tt<0.45)){if(TI.fold){const a=e.tstate==='transform'?1-e.tt/0.45:1,fm=TM.fold;ctx.globalAlpha=a;ctx.drawImage(TI.fold,rx-fm.w/2,H-6-fm.h,fm.w,fm.h);ctx.globalAlpha=1;}
     if(e.tstate==='folded')return;}
@@ -2358,7 +2357,7 @@ function drawTitan(){
 }
 // warning lights (glow pass): visor, leg thrusters, laser muzzle, launcher tubes, pod hatches, reactor
 function drawTitanGlow(){
-  const e=enemies.find(q=>q.type==='titan'&&!q.dead);if(!e||e.tstate==='folded'||e.tstate==='build')return;const [rx,ry]=titanRoot(e);
+  const e=enemies.find(q=>q.type==='titan'&&!q.dead);if(!e||e.dying||e.tstate==='folded'||e.tstate==='build')return;const [rx,ry]=titanRoot(e);
   const vis=headPt(e,TM.visor[0],TM.visor[1]);
   const warnL=e.ls==='warn',strobe=((G.t*14)|0)%2;
   let r=warnL?(strobe?16:8):6+2*Math.sin(G.t*3);ctx.globalAlpha=warnL?0.95:0.55;ctx.drawImage(glow(warnL?(strobe?'#ffffff':'#ffd24a'):'#ff3d3d'),vis[0]-r,vis[1]-r,r*2,r*2);
@@ -3170,7 +3169,7 @@ function drawWorld(){
   ctx.imageSmoothingEnabled=false;
   drawMiniParts();
   for(const e of enemies)if(e.type!=='titan'&&!e.type.startsWith('tp_')&&e.type!=='mb_magnet')drawEnemy(e);
-  drawTitan();
+  drawTitan();drawTitanDebris();
   drawFrags();
   drawDrone();
   drawBSExtras();
@@ -3351,7 +3350,7 @@ function flArt(k,c){FLI[k]=c;const r=FL_RA[k];
   if(k==='door_c'){ART.r_door.n=c;ART.r_door.w=whiteOf(c);}}
 function flSkin(e){for(const t in FL_SK)if(e.type===t||(ART[e.type]&&ART[e.type]===ART[t])){const s=FLR[FL_SK[t]];if(s){e.skin=s;e.pal=PAL_EN;}return;}}
 const FL={};
-function flReset(){Object.assign(FL,{act:1,bg:'factory',prev:null,fadeT:9,door:null,opened:false,open:null,actT:0,presses:[],pressT:3,dripT:2,cradle:0,cradleX:0,lastT:G.stageT||0,lastScroll:undefined});}
+function flReset(){Object.assign(FL,{tdeb:null,act:1,bg:'factory',prev:null,fadeT:9,door:null,opened:false,open:null,actT:0,presses:[],pressT:3,dripT:2,cradle:0,cradleX:0,lastT:G.stageT||0,lastScroll:undefined});}
 flReset();
 function flSetBG(k){if(FL.bg===k)return;FL.prev=FL.bg;FL.bg=k;FL.fadeT=0;}
 // called by the director every frame of stage 5; true while the blast door holds back the waves
@@ -3480,6 +3479,35 @@ function drawArmWork(e){
   // the control panels on the pillars feed power into the parts
   if(FL.tips.length&&Math.random()<0.12){const t=pick(FL.tips),side=t.x<W-135;strokeBolt(zigzag(side?W-270:W-6,rnd(105,135),t.x,t.y,8,6),0.7);}
   if(FL.tips.some(t=>t.work&&t.weld)&&Math.random()<0.08)noiseHit(0.06,0.05,6000,2500);}
+
+// Titan Prime's defeat: every remaining part blasts off one at a time and flies at the screen; the head goes last
+const TBREAK={podF:0.25,podB:0.45,launcher:0.7,laser2:0.85,laser:1.0,launcher2:1.15,legB:1.5,legF:1.7,torso:2.1,head:2.85};
+function titanBreakup(e){if(FL.tdeb)return;const [rx,ry]=titanRoot(e),mx=rx-10,my=ry+40,items=[];
+  const add=(k,img,cx,cy,w,h,pv,rot)=>{const t0=TBREAK[k],head=k==='head',dx=cx-mx,dy=cy-my;
+    items.push({k,img,cx,cy,w,h,pv,rot,t0,head,vx:head?0:dx*1.4-90-rnd(0,60),vy:head?0:dy*1.6-30+rnd(-30,30),spin:head?0:rnd(-4,4)*(Math.random()<0.5?1:-1),fired:false});};
+  for(const k of ['legB','legF','podB','torso','podF','launcher','laser','head']){const m=TM[k],img=TI[k],p=e.parts[k];if(!img||(p&&p.dead))continue;
+    if(k==='launcher'||k==='laser'){const px=rx+m.x+m.w*PIV[k][0],py=ry+m.y+m.h*PIV[k][1];add(k,img,px,py,m.w,m.h,PIV[k],p?p.ang:0);}
+    else if(k==='head'){const px=rx+m.x+m.w*TM.neck[0],py=ry+m.y+m.h*TM.neck[1];add(k,img,px,py,m.w,m.h,TM.neck,(e.hang||0));}
+    else add(k,img,rx+m.x+m.w/2,ry+m.y+m.h/2,m.w,m.h,[0.5,0.5],0);}
+  for(const k of ['launcher2','laser2']){const X=e.parts[k];if(!X||X.dead||!TID[ARMS[k].img])continue;const g=armGeo(e,k);add(k,TID[ARMS[k].img],g.px,g.py,g.m.w,g.m.h,g.piv,g.ang);}
+  for(const k in e.parts)e.parts[k].dead=true;
+  FL.tdeb={t0:G.t,items};}
+function drawTitanDebris(){const D=FL.tdeb;if(!D)return;const age=G.t-D.t0;let live=0;ctx.imageSmoothingEnabled=true;
+  // pieces still attached shake first; flying ones go last so they pass in front
+  const order=D.items.slice().sort((a,b)=>(age>=a.t0)-(age>=b.t0)||a.t0-b.t0);
+  for(const it of order){let x=it.cx,y=it.cy,s=1,r=it.rot,a=1;
+    if(age<it.t0){x+=rnd(-1.5,1.5)*Math.min(1,age*2);y+=rnd(-1.5,1.5)*Math.min(1,age*2);live++;}
+    else{const u=age-it.t0;
+      if(!it.fired){it.fired=true;explode(it.cx,it.cy,it.head?3.5:2.2,pick([PAL_EN,PAL_HOT]),!it.head);shake(it.head?0.7:0.3);noiseHit(0.5,0.25,1800,80);rumble(0.6,0.5,200,true);
+        if(it.head){whiteFlash=Math.max(whiteFlash,0.5);flashCol='255,220,180';}}
+      if(it.head){const k=Math.min(1,u/2.0),ease=k*k*(3-2*k);x=it.cx+(W*0.42-it.cx)*ease;y=it.cy+(H*0.45-it.cy)*ease-Math.sin(k*Math.PI)*30;
+        s=1+Math.pow(u,2.2)*3.2;r=it.rot+u*u*4;a=clamp(1-(s-6)/3,0,1);
+        if(s>5&&!it.flash){it.flash=true;whiteFlash=Math.max(whiteFlash,0.6);shake(0.5);}}
+      else{s=1+u*0.7+u*u*1.6;x=it.cx+it.vx*u*(1+u*0.6);y=it.cy+it.vy*u*(1+u*0.6);r=it.rot+it.spin*u;a=clamp(1-(s-2.6)/1.6,0,1);}
+      if(a<=0)continue;live++;
+      if(Math.random()<0.5*Q)P(2,x+rnd(-8,8),y+rnd(-8,8),rnd(-20,20),rnd(-30,0),0.6,4*s,10*s,null,0.5);}
+    ctx.save();ctx.globalAlpha=a;ctx.translate(x,y);ctx.rotate(r);ctx.scale(s,s);ctx.drawImage(it.img,-it.w*it.pv[0],-it.h*it.pv[1],it.w,it.h);ctx.restore();}
+  if(!live&&age>2)FL.tdeb=null;}
 function pressSlam(p){shake(0.35);rumble(0.7,0.6,180,true);noiseHit(0.25,0.35,900,60);
   for(let i=0;i<10;i++)P(0,p.x+rnd(-30,30),p.yb,rnd(-90,90),rnd(-60,-10),0.5,4,2,i%2?'#ffb35a':'#9a8a7a');
   for(const e of enemies)if(!e.dead&&!e.dying&&!e.isBoss&&e.type!=='r_door'&&Math.abs(e.x-p.x)<PR_W*0.45&&e.y<p.yb)kill(e);}
