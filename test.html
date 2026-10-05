@@ -688,8 +688,8 @@ function updateBoss(e,dt){
   }
   if(e.dying){
     e.dieT-=dt;e.x+=rnd(-1.5,1.5);e.y+=rnd(-1.5,1.5);
-    if(Math.random()<dt*14)spawnFrag(e,e.x+rnd(-50,50),e.y+rnd(-40,40),Math.random()<0.35);   // breaking apart
-    if(Math.random()<dt*16)explode(e.x+rnd(-50,50),e.y+rnd(-40,40),rnd(0.8,2.2),pick([e.pal,PAL_HOT]),Math.random()<0.5);
+    if(Math.random()<dt*(e.type==='titan'?3:14))spawnFrag(e,e.x+rnd(-50,50),e.y+rnd(-40,40),Math.random()<0.35);   // breaking apart
+    if(Math.random()<dt*(e.type==='titan'?4:16))explode(e.x+rnd(-50,50),e.y+rnd(-40,40),rnd(0.8,2.2),pick([e.pal,PAL_HOT]),Math.random()<0.5);
     e.beam=null;e.swipe=null;
     if(e.dieT<=0){
       e.dead=true;explode(e.x,e.y,7,e.pal);rumble(1,1,1200,true);
@@ -852,7 +852,7 @@ function hitEnemy(e,dmg,x,y,k){
 }
 function kill(e){
   if(e.isBoss){
-    e.dying=true;e.dieT=2.6;e.hp=0;
+    e.dying=true;e.dieT=e.type==='titan'?4.2:2.6;e.hp=0;
     for(const b of eb)P(0,b.x,b.y,0,0,0.3,5,1,C.hot);eb.length=0;
     shake(0.6);return;
   }
@@ -3481,10 +3481,10 @@ function drawArmWork(e){
   if(FL.tips.some(t=>t.work&&t.weld)&&Math.random()<0.08)noiseHit(0.06,0.05,6000,2500);}
 
 // Titan Prime's defeat: every remaining part blasts off one at a time and flies at the screen; the head goes last
-const TBREAK={podF:0.25,podB:0.45,launcher:0.7,laser2:0.85,laser:1.0,launcher2:1.15,legB:1.5,legF:1.7,torso:2.1,head:2.85};
+const TBREAK={podF:0.4,podB:0.8,launcher:1.2,laser2:1.5,laser:1.8,launcher2:2.1,legB:2.5,legF:2.95,torso:3.45,head:4.5};
 function titanBreakup(e){if(FL.tdeb)return;const [rx,ry]=titanRoot(e),mx=rx-10,my=ry+40,items=[];
   const add=(k,img,cx,cy,w,h,pv,rot)=>{const t0=TBREAK[k],head=k==='head',dx=cx-mx,dy=cy-my;
-    items.push({k,img,cx,cy,w,h,pv,rot,t0,head,vx:head?0:dx*1.4-90-rnd(0,60),vy:head?0:dy*1.6-30+rnd(-30,30),spin:head?0:rnd(-4,4)*(Math.random()<0.5?1:-1),fired:false});};
+    items.push({k,img,cx,cy,w,h,pv,rot,t0,head,vx:head?0:dx*0.7-45-rnd(0,30),vy:head?0:dy*0.8-15+rnd(-15,15),spin:head?0:rnd(-4,4)*(Math.random()<0.5?1:-1),fired:false});};
   for(const k of ['legB','legF','podB','torso','podF','launcher','laser','head']){const m=TM[k],img=TI[k],p=e.parts[k];if(!img||(p&&p.dead))continue;
     if(k==='launcher'||k==='laser'){const px=rx+m.x+m.w*PIV[k][0],py=ry+m.y+m.h*PIV[k][1];add(k,img,px,py,m.w,m.h,PIV[k],p?p.ang:0);}
     else if(k==='head'){const px=rx+m.x+m.w*TM.neck[0],py=ry+m.y+m.h*TM.neck[1];add(k,img,px,py,m.w,m.h,TM.neck,(e.hang||0));}
@@ -3501,9 +3501,10 @@ function drawTitanDebris(){const D=FL.tdeb;if(!D)return;const age=G.t-D.t0;let l
       if(!it.fired){it.fired=true;explode(it.cx,it.cy,it.head?3.5:2.2,pick([PAL_EN,PAL_HOT]),!it.head);shake(it.head?0.7:0.3);noiseHit(0.5,0.25,1800,80);rumble(0.6,0.5,200,true);
         if(it.head){whiteFlash=Math.max(whiteFlash,0.5);flashCol='255,220,180';}}
       if(it.head){const k=Math.min(1,u/2.0),ease=k*k*(3-2*k);x=it.cx+(W*0.42-it.cx)*ease;y=it.cy+(H*0.45-it.cy)*ease-Math.sin(k*Math.PI)*30;
-        s=1+Math.pow(u,2.2)*3.2;r=it.rot+u*u*4;a=clamp(1-(s-6)/3,0,1);
+        s=1+Math.pow(u,2.2)*3.6;r=it.rot+u*u*4;a=clamp(1-(s-7)/3,0,1);
         if(s>5&&!it.flash){it.flash=true;whiteFlash=Math.max(whiteFlash,0.6);shake(0.5);}}
-      else{s=1+u*0.7+u*u*1.6;x=it.cx+it.vx*u*(1+u*0.6);y=it.cy+it.vy*u*(1+u*0.6);r=it.rot+it.spin*u;a=clamp(1-(s-2.6)/1.6,0,1);}
+      else{s=1+u*1.1+u*u*2.4;x=it.cx+it.vx*u*(1+u*0.6);y=it.cy+it.vy*u*(1+u*0.6);r=it.rot+it.spin*u*0.7;a=clamp(1-(s-3.6)/2.2,0,1);
+        if(u<0.25){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=(1-u/0.25)*0.8;const g=Math.max(it.w,it.h)*s*0.9;ctx.drawImage(glow(C.hot),x-g,y-g,g*2,g*2);ctx.restore();}}
       if(a<=0)continue;live++;
       if(Math.random()<0.5*Q)P(2,x+rnd(-8,8),y+rnd(-8,8),rnd(-20,20),rnd(-30,0),0.6,4*s,10*s,null,0.5);}
     ctx.save();ctx.globalAlpha=a;ctx.translate(x,y);ctx.rotate(r);ctx.scale(s,s);ctx.drawImage(it.img,-it.w*it.pv[0],-it.h*it.pv[1],it.w,it.h);ctx.restore();}
