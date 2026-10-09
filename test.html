@@ -200,8 +200,14 @@ const A={ctx:null,master:null,noise:null,shot:0,tick:0,boom:0,mus:null,duck:null
 const MUSIC={
   stage:{src:'music/stage.mp3',ls:66.363,le:135.861,buf:null},
   // boss: file starts 10.27s before the drop (the pre-roll); the boss arrives exactly on the drop
-  boss:{src:'music/boss.mp3',ls:13.978,le:93.329,drop:10.274,buf:null}
+  boss:{src:'music/boss.mp3',ls:13.978,le:93.329,drop:10.274,buf:null},
+  boss1:{src:'music/boss1.mp3',ls:38.021,le:121.263,drop:10.274,beat:0.43355,anchor:10.274,buf:null},   // Mothership boss theme (drop aligned to the shared boss timing)
+  boss2:{src:'music/boss2.mp3',ls:41.467,le:133.311,drop:10.274,beat:0.43323,anchor:10.274,buf:null},   // Crystal Queen boss theme (drop aligned to the shared boss timing)
+  boss3:{src:'music/boss3.mp3',ls:52.018,le:118.808,drop:10.274,beat:0.41744,anchor:10.274,buf:null},   // Hive Mother boss theme (drop aligned to the shared boss timing)
 };
+// each of the first three worlds has its own boss theme; the Dreadnought and Titan Prime keep Final Boss Rush
+function bossTrack(){if(G.stage===4||G.stage===5)return 'boss';const k=['boss1','boss2','boss3'][faction()];const t=MUSIC[k];return t&&(t.buf||t.loading)?k:'boss';}
+function isBossTrack(n){return !!n&&n.startsWith('boss');}
 // Sound effects (Suno Sounds): trimmed, faded and level-matched. Synth versions are the fallback.
 const SFX_SRC={
   blaster:'data:audio/mpeg;base64,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Zy07QutPItbM7KSPNyTJHvjn1rTK7NvR1UD6cNuazUMhjXndqjpNcQUbQAABujla7iy58HlsvK/VmG8cI3NzsEyyPMsOWWpqGv/7gMQQgNa1kVKMMTNKfDLqEYSaeRCZYfOC8xPXly94yxafr0x8VSITyNCkjqhJ1pWUpDx95UcE9U0EsC86OzhyNDBERTglHTShghIQXVJhObTXF32XIA+IkDQgDQhFDBpclNDROmSCaZOy2RTpcKwQ6w6xMnqAly3LKLyAZKNIUZRFIjZ8lnoU0K7BQ/0Zl/SRanJEu2rJeSStGly7PZCqtvqXdqRbaU7YMnjAAFphY7NnlXe6cEPK/F+BKlfB8vrrZSla4WSLRN9KZzghRgqDJGWtAhw02QM8tOZETXRE+bMUCuoMOIV0gSQF3JdddQshi3ADyVrVg+wkPdFOlb2TKJEQ6FSJtQhWDVrIk0PTchedtLdOdFFgvJvdOOaPoNpENuFnBycw2gxW5JsbxpanGyWxZuZ9ReIlikHZwxI5JiqblWzO/5y6AjtYAAGCAYK7wf572aypvX6anaj8XicRbIW9TnZJAcMhFaa0//uCxBIA0lmXSowlEcqFMaeRhhp4C4C6k06B39Jc00mYG1kIlVPe5YKvXTgFhU0iISpKzlYuylUkTZlyKa16+Cd0lCOadPLLCweFmirCXUkRzIoHQ9OENFRbWoKqSBbcOhq7K7QibaLp6jKoppnillFhnWqlpslLjVaXprqfyn3aKkmkGRoAAMWGBr6l73vDBz0xV3JpytOm0YQNDAvg7TlP07MVrOFFnLFUPTBUuaxfCVAZCEhwMLz52imp8jYOjJc0ZX45OTE5VmU/ZatRHR6dPHTC5GlgS9j6U5Qm2EK9bWXJjm5kbO/S1myb8reOrN0vq4Bat8IyeRfFewn/JncpFU/JnC0dxL0daJFp4MO0pPCRuecbzOTs+5OJK/aq2yM8VcoHkAAAZAC4vbQxmSdx1K54W43hxF9Lihokohqpa1/urrpjEkiKw8y61D6Edh6OSMrKz2TolFq613N+rTzT0srSmB1SyNY6qbTQ//uCxCSAEo2JKwewz4n+M2CoxI3wCqnNAO9gYBWRAITVEknRKCqNIyConJVZK2SynI5T5/PcjXNIlJGlVOMS39qb+tbZzzJEFIwkbTz8rWOIo43mcpt/+56avnOJRRsswAAUEstFOHRykXxXpGthWD8CIaC8KU3zg1cVp57xEmwaQpTiRHTBNHPbxSNE46Kk3SvyvNxEFRkkNIQTyxgqOJY1ntUNYe1QUFQVTUmuasTGAghxM/MmpNaR1GCof9jqGBuX+TWpY4llDBg5NSakXmsNZzVrLI6GqClkHAQwsS1MQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV',
@@ -287,14 +293,14 @@ function updateBeat(){
   const b=(pos-anc)/per,i=Math.floor(b),ph=b-i;
   if(i!==BEAT.idx){BEAT.idx=i;if(mod(i,4)===0){BEAT.col=NEON[mod(Math.floor(i/4),NEON.length)];
     if(G.state!=='intro'&&!G.paused)RINGS.push({r:0,col:BEAT.col});}}
-  BEAT.pulse=Math.exp(-ph*5);BEAT.bar=mod(i,4)===0?BEAT.pulse:0;BEAT.boss=M.name==='boss';
+  BEAT.pulse=Math.exp(-ph*5);BEAT.bar=mod(i,4)===0?BEAT.pulse:0;BEAT.boss=isBossTrack(M.name);
 }
 const M={node:null,gain:null,name:null,startedAt:0,offset:0,want:null,wantOff:0,pos:{}};
 let musicOn=true;try{musicOn=localStorage.getItem('bangshoot-music')!=='off';}catch(e){}
 function b64bytes(uri){const bin=atob(uri.slice(uri.indexOf(',')+1)),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
 function decodeMusic(){
   // one at a time, most urgent first (title song, then stage 1)
-  const order=['title','stage','boss','stage2','stage3','stage4','stage5','ending'];let chain=Promise.resolve();
+  const order=['title','stage','boss','boss1','stage2','boss2','stage3','boss3','stage4','stage5','ending'];let chain=Promise.resolve();
   const pf={};for(const n of order){const t=MUSIC[n];if(t&&!t.buf&&!t.loading&&!t.src.startsWith('data:')){pf[n]=fetch(t.src).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer();});pf[n].catch(()=>{});}}   // download every track at once; decode one at a time
   for(const name of order){const t=MUSIC[name];if(!t||t.buf||t.loading)continue;t.loading=true;
     chain=chain.then(()=>new Promise((res,rej)=>{(t.src.startsWith('data:')?Promise.resolve(b64bytes(t.src)):pf[name]).then(ab=>{const pr=A.ctx.decodeAudioData(ab,res,rej);if(pr&&pr.then)pr.then(res,rej);},rej);})
@@ -557,7 +563,7 @@ function director(dt){
   if(G.stageT>=BOSS_AT&&!(G.mini&&!G.mini.dead)){
     // Pre-boss: waves stop, boss music starts building; everything after this is timed to the music
     G.pre=true;G.preT=0;G.preClock=0;G.warned=false;
-    playMusic('boss',0,1.2,2.5);return;
+    playMusic(bossTrack(),0,1.2,2.5);return;
   }
   if(!G.miniDone&&G.stageT>=12&&G.stage!==4&&!TUN.on)spawnMini();
   if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){G.escT=rnd(4,5.5);const f=G.stage===5?0:faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});}return;}
@@ -576,7 +582,7 @@ function bossApproach(dt){
   G.bossDropT=8;
   G.preT+=dt;
   // Clock follows the boss music when it's playing (so the boss lands on the drop), otherwise game time
-  G.preClock=Math.max(G.preClock,(M.name==='boss'&&M.node)?Math.max(trackPos(),G.preT-0.5):G.preT);
+  G.preClock=Math.max(G.preClock,(isBossTrack(M.name)&&M.node)?Math.max(trackPos(),G.preT-0.5):G.preT);
   const c=G.preClock;
   if(!G.warned&&c>=BOSS_DROP-WARN_AT){G.warned=true;banner('Warning',3);const v=say('warning',3);if(!samp('alarm',v?0.3:0.6,1))sfx.alarm();}
   if(!G.boss&&c>=BOSS_DROP-(G.stage===5?TBUILD:ENTRY)){const bt=G.stage===5?'titan':['boss','queen','mother'][faction()];G.boss=E(bt,W+90,H/2,{entering:true});if(bt==='titan')titanSpawnParts(G.boss);}
@@ -1376,7 +1382,7 @@ function startCheatGame(){
 }
 const ATTRACT=['scores','roster','howto'];
 const TRACKS=[{k:'title',n:'Bang Shoot! (title song)'},{k:'stage',n:'Pixel Blaster (stage 1)'},{k:'stage2',n:'Arcade Rush (stage 2)'},
-  {k:'stage3',n:'Pixelata Space (stage 3)'},{k:'stage4',n:'Hammer Press (stage 4)'},{k:'stage5',n:'Final Battle (stage 5)'},{k:'boss',n:'Final Boss Rush (boss)'},{k:'ending',n:'Victory Arpeggio (ending)'}];
+  {k:'stage3',n:'Pixelata Space (stage 3)'},{k:'stage4',n:'Hammer Press (stage 4)'},{k:'stage5',n:'Final Battle (stage 5)'},{k:'boss1',n:'Mothership (boss 1)'},{k:'boss2',n:'Crystal Queen (boss 2)'},{k:'boss3',n:'Hive Mother (boss 3)'},{k:'boss',n:'Final Boss Rush (final boss)'},{k:'ending',n:'Victory Arpeggio (ending)'}];
 function flash(m){MENU.msg=m;MENU.msgT=2.8;}
 function goTitle(scr){G.state='title';timers.length=0;BS.on=false;enemies.length=0;eb.length=0;pb.length=0;pups.length=0;MENU.scr=scr||'main';MENU.sel=0;MENU.idle=0;MENU.sync=null;G.paused=false;
   if(A.ctx&&M.name!=='title'){stopMusic(0.8);playMusic('title',0,0.8);}}
@@ -1558,7 +1564,7 @@ function menuTap(p){
   if(s==='cheats'){for(let i=0;i<6;i++){const y=OPT_Y+i*18;if(Math.abs(p.y-y)<9){MENU.sel=i;menuInput(i>=4?'ok':(p.x<W/2+40?'left':'right'));return;}}return;}
   if(s==='options'){for(let i=0;i<6;i++){const y=OPT_Y+i*18;if(Math.abs(p.y-y)<9){MENU.sel=i;
       if(i===5)menuInput('ok');else menuInput(p.x<W/2+40?'left':'right');return;}}return;}
-  if(s==='jukebox'){const items=jukeItems();for(let i=0;i<items.length;i++){const y=JB_Y+i*14;if(Math.abs(p.y-y)<7&&p.x<250){MENU.sel=i;menuInput('ok');return;}}}
+  if(s==='jukebox'){const items=jukeItems();for(let i=0;i<items.length;i++){const y=JB_Y+i*JB_DY;if(Math.abs(p.y-y)<7&&p.x<250){MENU.sel=i;menuInput('ok');return;}}}
 }
 
 /* ---------- initials entry ---------- */
@@ -1586,7 +1592,7 @@ function nameTap(p){
 
 /* ---------- drawing: menus ---------- */
 function mainDY(){return MAIN.length>6?12:MAIN.length>5?13.5:16;}
-const MAIN_Y=148,MAIN_DY=16,OPT_Y=70,JB_Y=52,NAME_Y=150;
+const MAIN_Y=148,MAIN_DY=16,OPT_Y=70,JB_Y=52,JB_DY=13,NAME_Y=150;
 function panel(x,y,w,h){ctx.fillStyle='rgba(8,4,24,.78)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='rgba(180,140,255,.5)';ctx.lineWidth=1;ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);}
 function heading(t,y){centerText(t,y||16,8,C.gold);}
 function backHint(){ctx.font=F8;ctx.textAlign='left';ctx.textBaseline='middle';txt('< Back',8,9,'#d9c8ff');}
@@ -1685,7 +1691,7 @@ function drawJukebox(){
   if(MENU.sync){drawSync();return;}
   panel(10,40,236,MENU.playing==='title'?120:210);
   const items=jukeItems();ctx.font=F8;ctx.textBaseline='middle';ctx.textAlign='left';
-  items.forEach((it,i)=>{const y=JB_Y+i*14,on=i===MENU.sel,pl_=MENU.playing===it.k&&M.name===it.k&&M.node;
+  items.forEach((it,i)=>{const y=JB_Y+i*JB_DY,on=i===MENU.sel,pl_=MENU.playing===it.k&&M.name===it.k&&M.node;
     if(MENU.playing==='title'&&y>152)return;
     txt((on?'> ':'  ')+it.n,16,y,pl_?C.gold:on?C.white:'#b9a8e8');});
   // visualiser
