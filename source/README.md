@@ -55,6 +55,8 @@ Folder: `source/art/stage1-aliens/`
 | Asteroids (meteor showers).jpg | Meteor shower hazard |
 | The Warden (mini-boss).jpg | Stage 1 mini-boss |
 | Mothership (boss).jpg | Stage 1 boss |
+| Mothership turret - destroyed.jpg | Wrecked hull turret (Gemini, from the reference crop); shown when a turret is shot off |
+| Mothership turret - reference crop.png | One turret cut from the Mothership art, given to Gemini as the reference |
 
 ## Stage 2: the crystal cavern
 
