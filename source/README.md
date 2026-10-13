@@ -201,6 +201,7 @@ These are the versions inside the game (trimmed and compressed), saved here beca
 - Voice - Speed up
 - Voice - Stage clear
 - Voice - Warning
+- Voice - Titan You're mine now (Titan Prime coming alive; made by Steven)
 - Warning alarm
 
 ## Sound effects made in code
@@ -219,6 +220,22 @@ Folder: `source/sound-effects/made-in-code/`
 | Bosses and warnings | boss-tell, boss-launch, crystal-break, new-enemy, rear-warning, tunnel-warning, miniboss-arrive, miniboss-rage |
 | Stage 5 | door-alarm, door-blast, foundry-alarm, press-warning, press-slam, zap-charge, zap-fire, titan-build |
 | Menus and ending | menu-move, menu-select, text-tick, firework, hyperdrive |
+
+## Sounds built from real recordings
+
+Folder: `source/sound-effects/kenney-based/`
+
+Built from Kenney's Impact Sounds pack (CC0, see `Kenney-License.txt`; credited in the game's end credits though it isn't required), sometimes layered with the game's own Suno explosions.
+
+| File | Used for |
+|---|---|
+| clang-tick-0 to 4 | Light hit on every shot that bounces off armour |
+| clang-heavy-0 to 4 | Heavy armour impact, about every half second while hitting armour |
+| chip-small-0 to 2 | Small pieces chipping off a boss |
+| armour-chunk | Big pieces breaking off a boss (small explosion + plate crash + wreckage) |
+| crystal-break | Crystal Queen's crystals breaking off (small explosion + glass) |
+
+The taking-damage sound (`made-in-code/player-hurt.wav`) is the "thud and alarm" version.
 
 ## Adding new files
 
