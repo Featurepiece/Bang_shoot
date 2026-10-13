@@ -203,6 +203,23 @@ These are the versions inside the game (trimmed and compressed), saved here beca
 - Voice - Warning
 - Warning alarm
 
+## Sound effects made in code
+
+Folder: `source/sound-effects/made-in-code/`
+
+47 sound effects synthesised in code (retro arcade style, like the old sfxr tool) to replace the game's old beeps, which were too quiet to hear. Each `.wav` here is the full-quality version; the game uses 22 kHz copies. The scripts that made them are in the same folder, so any sound can be changed and remade: `python3 build.py` (needs Python with numpy and scipy). `vol.json` sets each sound's in-game volume.
+
+| Group | Files |
+|---|---|
+| Bullet hits | hit-pulse, hit-laser, hit-wave, hit-homing |
+| Firing loops | fire-pulse, fire-laser, fire-wave, fire-homing |
+| Ship | player-hurt, low-health |
+| Weapons | charge-loop, charge-release, weapon-swap, missile-launch, bomb-drop |
+| Enemies | enemy-missile, armour-chip, armour-clang, cloaker, dive, kamikaze, crystal-shot, spit, egg-burst, carrier-launch, crystal-fall |
+| Bosses and warnings | boss-tell, boss-launch, crystal-break, new-enemy, rear-warning, tunnel-warning, miniboss-arrive, miniboss-rage |
+| Stage 5 | door-alarm, door-blast, foundry-alarm, press-warning, press-slam, zap-charge, zap-fire, titan-build |
+| Menus and ending | menu-move, menu-select, text-tick, firework, hyperdrive |
+
 ## Adding new files
 
 New originals go in the matching folder, named after what they are, with a line added to the table above.

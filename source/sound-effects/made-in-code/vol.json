@@ -1,0 +1,6 @@
+{"hit-pulse":0.28,"hit-laser":0.3,"hit-wave":0.28,"hit-homing":0.28,"fire-pulse":0.3,"fire-laser":0.26,"fire-wave":0.3,"fire-homing":0.28,
+"player-hurt":0.75,"low-health":0.45,"charge-loop":0.32,"charge-release":0.8,"weapon-swap":0.5,"missile-launch":0.25,"bomb-drop":0.35,
+"enemy-missile":0.4,"armour-chip":0.45,"armour-clang":0.3,"cloaker":0.45,"dive":0.4,"kamikaze":0.5,"crystal-shot":0.4,"spit":0.42,"egg-burst":0.45,"carrier-launch":0.38,"crystal-fall":0.35,
+"boss-tell":0.7,"boss-launch":0.4,"crystal-break":0.55,"new-enemy":0.5,"rear-warning":0.6,"tunnel-warning":0.55,"miniboss-arrive":0.8,"miniboss-rage":0.7,
+"door-alarm":0.65,"door-blast":0.9,"foundry-alarm":0.55,"press-warning":0.55,"press-slam":0.8,"zap-charge":0.55,"zap-fire":0.75,"titan-build":0.5,
+"menu-move":0.5,"menu-select":0.6,"text-tick":0.45,"firework":0.45,"hyperdrive":0.7}
