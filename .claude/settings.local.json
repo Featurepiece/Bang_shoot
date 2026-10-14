@@ -16,7 +16,10 @@
       "Bash(git push *)",
       "Bash(git ls-remote *)",
       "Bash(cp \"/root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/fe944dba-E_Minor_Assault.mp3\" \"source/music/stage1 - E Minor Assault.mp3\")",
-      "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Add new Stage 1 track E Minor Assault \\(source only, not wired in\\) *)"
+      "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Add new Stage 1 track E Minor Assault \\(source only, not wired in\\) *)",
+      "Bash(cp /root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/70c6e242-image.jpg 'source/art/stage1-aliens/Gate pillar - ceiling.jpg')",
+      "Bash(cp /root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/8ff8d0ad-image.jpg 'source/art/stage1-aliens/Gate pillar - floor.jpg')",
+      "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Gate pillar art for the new stage 1 \\(source only\\) *)"
     ]
   }
 }
