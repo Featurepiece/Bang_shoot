@@ -13,7 +13,8 @@
       "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Mothership shows battle damage in three stages *)",
       "Bash(cp \"/root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/12950796-Secret_Bang_Shoot.mp3\" music/secret.mp3)",
       "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Add secret track \\(music/secret.mp3\\), not wired in yet *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git ls-remote *)"
     ]
   }
 }
