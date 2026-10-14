@@ -15,6 +15,7 @@ Folder: `source/music/`
 |---|---|
 | title - Bang Shoot.mp3 | Title song (with karaoke lyrics in the Jukebox) |
 | stage1 - Pixel Blaster.mp3 | Stage 1 music |
+| stage1 - E Minor Assault.mp3 | New Stage 1 music for the longer, sectioned stage (not in the game yet) |
 | stage2 - Arcade Rush.mp3 | Stage 2 music |
 | stage3 - Pixelata Space.mp3 | Stage 3 music |
 | stage4 - Hammer Press.mp3 | Stage 4 music (the Dreadnought) |
