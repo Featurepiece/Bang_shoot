@@ -16,6 +16,9 @@ Folder: `source/music/`
 | title - Bang Shoot.mp3 | Title song (with karaoke lyrics in the Jukebox) |
 | stage1 - Pixel Blaster.mp3 | Stage 1 music |
 | stage1 - E Minor Assault.mp3 | New Stage 1 music for the longer, sectioned stage (not in the game yet) |
+
+`music/stage1-assault.mp3` is the game edit of E Minor Assault: 2:56 long. 24 bars (2:27.9 to 3:05.8) are cut from the full-power section on 8-bar phrase lines, so the beat runs on unbroken. Loudness matched to the other tracks (-16.3 LUFS). Sections in the edit: intro 0:00, main theme 0:28, breakdown 1:32, full power 1:50, ending (boss warning) 2:35.8, final hit about 2:48. Not in the game yet.
+
 | stage2 - Arcade Rush.mp3 | Stage 2 music |
 | stage3 - Pixelata Space.mp3 | Stage 3 music |
 | stage4 - Hammer Press.mp3 | Stage 4 music (the Dreadnought) |
