@@ -46,5 +46,5 @@ rep("""  if(e.flash>0){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.
     ctx.fillStyle=C.gold;ctx.beginPath();if(above){ctx.moveTo(x-5,ty+5);ctx.lineTo(x+5,ty+5);ctx.lineTo(x,ty+11);}else{ctx.moveTo(x-5,ty-5);ctx.lineTo(x+5,ty-5);ctx.lineTo(x,ty-11);}ctx.fill();
     ctx.font=F8;ctx.textAlign='center';ctx.textBaseline='middle';txt('Attack here',clamp(x,50,W-50),above?ty-4:ty+4,C.gold);ctx.globalAlpha=1;}
   ctx.restore();}""")
-rep("DEF.ring={hp:70,score:8000,pw:4,drop:1};","DEF.ring={hp:130,score:8000,pw:4,drop:1};")
+rep("DEF.ring={hp:70,score:8000,pw:4,drop:1};","DEF.ring={hp:100,score:8000,pw:4,drop:1};")
 open(p,'w',encoding='utf-8').write(s);print('OK')
