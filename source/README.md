@@ -21,6 +21,7 @@ Folder: `source/music/`
 
 | stage2 - Arcade Rush.mp3 | Stage 2 music |
 | stage3 - Pixelata Space.mp3 | Stage 3 music |
+| stage3 - Insectoid Arpeggio.mp3 | New Stage 3 (Hive) music for the reworked stage (not in the game yet). 3:14, 152 BPM, F minor |
 | stage4 - Hammer Press.mp3 | Stage 4 music (the Dreadnought) |
 | stage5 - Final Battle.mp3 | Stage 5 music (the Robot Base) |
 | boss1 - Mothership.mp3 | Mothership boss fight |
