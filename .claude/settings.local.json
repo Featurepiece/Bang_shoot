@@ -21,7 +21,10 @@
       "Bash(cp /root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/8ff8d0ad-image.jpg 'source/art/stage1-aliens/Gate pillar - floor.jpg')",
       "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Gate pillar art for the new stage 1 \\(source only\\) *)",
       "Bash(cp /root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/d5ecabab-image.jpg \"source/art/stage1-aliens/Ring pod.jpg\")",
-      "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Ring pod art for the stage 1 set piece \\(source only\\) *)"
+      "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Ring pod art for the stage 1 set piece \\(source only\\) *)",
+      "Bash(git rm *)",
+      "Bash(cp /root/.claude/uploads/ae8d7b5e-3457-5a66-9a7e-d466f5b48944/1dd31692-image.jpg \"source/art/stage1-aliens/Ring pod - weak point.jpg\")",
+      "Bash(git -c user.name=Steven -c user.email=stevengailey.sg@googlemail.com commit -q -m 'Ring pod weak point: Gemini version replaces the code-painted one *)"
     ]
   }
 }
