@@ -48,20 +48,21 @@ function makeFB(){const w=Math.max(1,cv.width>>1),h=Math.max(1,cv.height>>1);
 let K=1;
 // Screen look (Options): 'clean' = full resolution; 'pixel' = drawn at the real 480x270 and enlarged with hard pixels (also less work for the phone);
 // 'crt' = pixel + scanlines and darkened edges, a see-through layer the browser composites almost for free
-let SCREEN='crt';try{SCREEN=JSON.parse(localStorage.getItem('bangshoot-options')||'{}').screen||'crt';}catch(e){}
+let SCREEN='scan';try{SCREEN=JSON.parse(localStorage.getItem('bangshoot-options')||'{}').screen||'scan';}catch(e){}
+if(SCREEN==='crt')SCREEN='scan';   // the old Arcade CRT setting becomes Scanlines
 function resize(){
   const aw=document.body.clientWidth||innerWidth, ah=document.body.clientHeight||innerHeight;
   let cw=aw, ch=aw*9/16; if(ch>ah){ch=ah;cw=ah*16/9;}
   cw=Math.max(1,Math.floor(cw)); ch=Math.max(1,Math.floor(ch));
   const dpr=Math.min(window.devicePixelRatio||1,2);
   cv.style.width=cw+'px'; cv.style.height=ch+'px';
-  if(SCREEN==='clean'){cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);}else{cv.width=W;cv.height=H;}
-  cv.classList.toggle('px',SCREEN!=='clean');
+  if(SCREEN!=='pixel'){cv.width=Math.round(cw*dpr); cv.height=Math.round(ch*dpr);}else{cv.width=W;cv.height=H;}
+  cv.classList.toggle('px',SCREEN==='pixel');
   K=cv.width/W;
   const crt=document.getElementById('crt');
-  if(SCREEN==='crt'){const r=cv.getBoundingClientRect(),row=ch/H,per=row>=3?row:row*2;   // one dark line per game row, or per two on small screens so lines stay visible
+  if(SCREEN==='scan'){const r=cv.getBoundingClientRect(),per=Math.max(3,Math.round(ch/H)),dk=Math.max(1,Math.round(per*0.45));   // one line per game row, in whole screen pixels so every line is equally sharp
     Object.assign(crt.style,{display:'block',left:r.left+'px',top:r.top+'px',width:cw+'px',height:ch+'px',
-      backgroundImage:'radial-gradient(ellipse at center,rgba(0,0,0,0) 58%,rgba(0,0,0,.55) 100%),repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0px,rgba(0,0,0,0) '+(per*0.55)+'px,rgba(0,0,0,.32) '+(per*0.55)+'px,rgba(0,0,0,.32) '+per+'px)'});}
+      backgroundImage:'repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0px,rgba(0,0,0,0) '+(per-dk)+'px,rgba(0,0,0,.38) '+(per-dk)+'px,rgba(0,0,0,.38) '+per+'px)'});}
   else crt.style.display='none';
   makeFB();
 }
@@ -1579,9 +1580,10 @@ function togglePause(){if(G.state==='play')setPaused(!G.paused);}
 
 
 /* ---------- options, high scores ---------- */
-const OPT={music:8,sfx:8,rumble:'light',intro:'auto',diff:'medium',screen:'crt'};
+const OPT={music:8,sfx:8,rumble:'light',intro:'auto',diff:'medium',screen:'scan'};
 const DIFFS={easy:{fire:0.55,spd:0.8,hp:0.8,spawn:1.2,name:'Easy'},medium:{fire:1,spd:1,hp:1,spawn:1,name:'Medium'},hard:{fire:1.35,spd:1.12,hp:1.2,spawn:0.85,name:'Hard'}};
 try{Object.assign(OPT,JSON.parse(localStorage.getItem('bangshoot-options')||'{}'));}catch(e){}
+if(OPT.screen==='crt')OPT.screen='scan';
 if(OPT.rumble===true)OPT.rumble='light';else if(OPT.rumble===false)OPT.rumble='off';   // older saved setting
 function saveOpt(){try{localStorage.setItem('bangshoot-options',JSON.stringify(OPT));}catch(e){}applyVolumes();}
 function applyVolumes(){if(!A.ctx||!A.master)return;const t=A.ctx.currentTime;
@@ -1759,7 +1761,7 @@ function menuInput(a){
       else if(MENU.sel===2){const L=['easy','medium','hard'];OPT.diff=L[(L.indexOf(OPT.diff)+(d>0?1:2))%3];}
       else if(MENU.sel===3){const L=['off','light','strong'];OPT.rumble=L[(L.indexOf(OPT.rumble)+(d>0?1:2))%3];rumble(0.8,0.8,200,true);}
       else if(MENU.sel===4){const L=['auto','full','short'];OPT.intro=L[(L.indexOf(OPT.intro)+(d>0?1:2))%3];}
-      else if(MENU.sel===5){const L=['clean','pixel','crt'];OPT.screen=L[(L.indexOf(OPT.screen)+(d>0?1:2))%3];SCREEN=OPT.screen;resize();}
+      else if(MENU.sel===5){const L=['clean','scan','pixel'];OPT.screen=L[(Math.max(0,L.indexOf(OPT.screen))+(d>0?1:2))%3];SCREEN=OPT.screen;resize();}
       else if(a==='ok'){MENU.scr='main';MENU.sel=MAIN.indexOf('Options');}
       saveOpt();}
     else if(a==='back'){MENU.scr='main';MENU.sel=MAIN.indexOf('Options');}
@@ -2056,7 +2058,7 @@ function drawGuide(){
 }
 function drawOptions(){
   panel(70,26,340,200);heading('Options',40);
-  const rows=[['Music volume',OPT.music],['Effects volume',OPT.sfx],['Difficulty',(DIFFS[OPT.diff]||DIFFS.medium).name],['Rumble',{off:'Off',light:'Light',strong:'Strong'}[OPT.rumble]||'Light'],['Intro',{auto:'Full first',full:'Always full',short:'Always short'}[OPT.intro]],['Screen',{clean:'Clean',pixel:'Pixel',crt:'Arcade CRT'}[OPT.screen]||'Arcade CRT'],['Back',null]];
+  const rows=[['Music volume',OPT.music],['Effects volume',OPT.sfx],['Difficulty',(DIFFS[OPT.diff]||DIFFS.medium).name],['Rumble',{off:'Off',light:'Light',strong:'Strong'}[OPT.rumble]||'Light'],['Intro',{auto:'Full first',full:'Always full',short:'Always short'}[OPT.intro]],['Screen',{clean:'Clean',scan:'Scanlines',pixel:'Pixel'}[OPT.screen]||'Scanlines'],['Back',null]];
   ctx.font=F8;ctx.textBaseline='middle';
   rows.forEach(([n,v],i)=>{const y=OPT_Y+i*18,on=i===MENU.sel;ctx.textAlign='left';txt((on?'> ':'  ')+n,90,y,on?C.white:'#b9a8e8');
     if(typeof v==='number'){for(let k=0;k<10;k++){ctx.fillStyle=k<v?(on?C.gold:C.ember):'rgba(255,255,255,.15)';ctx.fillRect(262+k*13,y-4,10,8);}}
@@ -2135,7 +2137,7 @@ function drawName(){
     txt(ABC[NAME.c[i]],x,NAME_Y,on?C.gold:C.white);
     ctx.font=F8;txt('^',x,NAME_Y-18,on?C.white:'#6d5a9e');txt('v',x,NAME_Y+18,on?C.white:'#6d5a9e');ctx.font=F(16);}
   ctx.font=F8;txt('OK',W/2,NAME_Y+52,((G.t*3)|0)%2?C.gold:C.white);
-  ctx.globalAlpha=0.6;centerText(touchUI?'Tap arrows, then OK':'Up/down letter, Enter next',220,8,'#d9c8ff');ctx.globalAlpha=1;
+  ctx.globalAlpha=0.6;centerText(touchUI?'Tap arrows, then OK':GP.active?'Up/down letter, A next':'Up/down letter, Enter next',220,8,'#d9c8ff');ctx.globalAlpha=1;
 }
 function drawHeart(x,y,s,col){
   ctx.beginPath();ctx.moveTo(x,y+s*0.9);ctx.bezierCurveTo(x-s*1.5,y-s*0.1,x-s*0.7,y-s*1.2,x,y-s*0.35);
