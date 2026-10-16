@@ -77,7 +77,7 @@ for bi,(bar,f) in enumerate(SONG):
     # voice 3: chord arpeggio at 50 Hz, interrupted by drums
     for k in range(fr,fr+16*SPEED):
         if f.get('arp'):
-            c=CH[chord];V[2]['f'][k]=hz(c[(k)%3]);V[2]['g'][k]=0.42;V[2]['w'][k]='p';V[2]['pw'][k]=0.5
+            c=CH[chord];V[2]['f'][k]=hz(c[(k)%3]);V[2]['g'][k]=0.34;V[2]['w'][k]='p';V[2]['pw'][k]=0.5
     ds=f.get('drums')
     kick=[0,8,10] if ds=='full' else [0,8] if ds in('intro','end') else []
     snare=[4,12] if ds=='full' else [12] if ds=='intro' and bi%2 else []
@@ -86,9 +86,9 @@ for bi,(bar,f) in enumerate(SONG):
     for s in range(16):
         k0=fr+s*SPEED
         if s in kick:
-            for i,(w,fq,g) in enumerate([('n',3000,1.0),('p',180,1.0),('p',120,0.9),('p',85,0.75),('p',62,0.5)]):V[2]['w'][k0+i]=w;V[2]['f'][k0+i]=fq;V[2]['g'][k0+i]=g;V[2]['pw'][k0+i]=0.5
+            for i,(w,fq,g) in enumerate([('n',2600,1.0),('t',190,1.0),('t',140,1.0),('t',105,1.0),('t',82,0.95),('t',66,0.85),('t',56,0.65),('t',50,0.4)]):V[2]['w'][k0+i]=w;V[2]['f'][k0+i]=fq;V[2]['g'][k0+i]=g;V[2]['pw'][k0+i]=0.5
         elif s in snare:
-            for i,(w,fq,g) in enumerate([('p',260,0.9),('n',4500,1.0),('n',3800,0.8),('n',3000,0.55),('n',2500,0.3)]):V[2]['w'][k0+i]=w;V[2]['f'][k0+i]=fq;V[2]['g'][k0+i]=g;V[2]['pw'][k0+i]=0.4
+            for i,(w,fq,g) in enumerate([('p',240,1.0),('p',200,0.9),('n',5200,1.0),('n',4400,0.9),('n',3800,0.75),('n',3300,0.55),('n',2900,0.35),('n',2500,0.18)]):V[2]['w'][k0+i]=w;V[2]['f'][k0+i]=fq;V[2]['g'][k0+i]=g;V[2]['pw'][k0+i]=0.4
         elif s in hat:
             V[2]['w'][k0]='n';V[2]['f'][k0]=9000;V[2]['g'][k0]=0.45
     fr+=16*SPEED
@@ -105,6 +105,8 @@ for vi,v in enumerate(V):
         n=np.arange(1,SPF+1);gg=gprev+(g-gprev)*n/SPF
         if v['w'][k]=='n':                      # SID noise: sample-and-hold at a rate set by the frequency
             idx=(nph+fq*n/SR*1.0).astype(np.int64);seg=NOISE[idx%len(NOISE)];nph+=fq*SPF/SR
+        elif v['w'][k]=='t':
+            p=(ph+fq*n/SR)%1.0;seg=1.6*(2*np.abs(2*p-1)-1);ph=(ph+fq*SPF/SR)%1.0
         else:
             p=(ph+fq*n/SR)%1.0;seg=np.where(p<v['pw'][k],1.0,-1.0);ph=(ph+fq*SPF/SR)%1.0
         buf[k*SPF:(k+1)*SPF]=seg*gg;gprev=g
@@ -121,7 +123,7 @@ for vi,v in enumerate(V):
             y[k*SPF:(k+1)*SPF]=o
         res=ss.lfilter(*ss.iirpeak(900,2.0,fs=SR),y)
         buf=y+0.35*res
-    out+=buf*[0.32,0.42,0.30][vi]
+    out+=buf*[0.22,0.42,0.40][vi]
 out=out[:fr*SPF+SR]                                   # let the last hit ring for a second
 fade=np.ones_like(out);fade[-int(0.8*SR):]=np.linspace(1,0,int(0.8*SR))**2;out*=fade
 out-=ss.lfilter([1],[1,-0.995],out)*0.005               # remove DC drift
