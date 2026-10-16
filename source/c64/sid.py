@@ -1,3 +1,4 @@
+# "Claude does C64" v3 (lead articulation measured from the same player: hard restart, stepped vibrato, linear PWM, octave-flick attacks)
 # "Claude does C64" v2 - original tune; sound design from measurements of a real Rob Hubbard SID player:
 #  voice 1 lead (pulse, width sweeps, shallow vibrato) | voice 2 drums only, built from shaped noise | voice 3 bass (pulse, 8ths)
 #  4-frame step grid at 50 Hz = 187.5 BPM, bass as loud as the lead, no filter, arpeggios only as flourishes
@@ -42,15 +43,23 @@ for bi,(bar,f) in enumerate(SONG):
         nf=L*SPEED
         if n=='arp':                                              # flourish: a fast chord arpeggio at 50 Hz
             c=[x+12 for x in CH[chord]];e=env(nf,0.47,6,3)
-            for i in range(nf+3):
-                if t+i<NF:V[0]['f'][t+i]=hz(c[i%3]);V[0]['g'][t+i]=e[i]
+            for i in range(nf):
+                if t+i<NF:V[0]['f'][t+i]=hz(c[i%3]);V[0]['g'][t+i]=e[i] if i<nf-2 else 0
         elif n!='-':
-            m=midi(n) if isinstance(n,str) else n;e=env(nf-1,0.47,6,3)
-            for i in range(nf+2):
+            m=midi(n) if isinstance(n,str) else n
+            gate=max(1,nf-2)                                       # hard restart: gate off for the last 2 frames of every note
+            VIB=[-25,-13,0,13,13,0,-13,-25]                        # stepped vibrato in cents, one step per frame, from the first frame
+            nidx=globals().setdefault('_nidx',[0]);nidx[0]+=1
+            orn='oct' if (L>=4 and nidx[0]%5==0) else 'noise' if (L>=4 and nidx[0]%11==3) else None
+            for i in range(nf):
                 if t+i>=NF:break
-                vib=0.2*np.sin(2*np.pi*(i-6)/6) if L>=4 and i>6 else 0
-                sl=(prev-m)*(1-i/2) if prev is not None and L>=2 and i<2 and abs(prev-m)<=5 else 0
-                if i<nf-1 or V[0]['g'][t+i]==0:V[0]['f'][t+i]=hz(m+vib+sl);V[0]['g'][t+i]=e[i] if i<len(e) else 0
+                if i>=gate:V[0]['g'][t+i]=0;continue
+                g_=min(1,(i+1)/2)*max(0.47,1-(1-0.47)*i/6)        # quick attack, decay to sustain 6/15
+                cents=VIB[i%8] if L>=4 else 0
+                mm_=m
+                if orn=='oct' and i in(0,2):mm_=m-12               # octave-down flick on the attack
+                V[0]['f'][t+i]=hz(mm_+cents/100);V[0]['g'][t+i]=g_
+                if orn=='noise' and i==1:V[0]['w'][t+i]='n';V[0]['f'][t+i]=hz(m+1)
             prev=m
         t+=nf
     root=CH[chord][0]-24 if CH[chord][0]>=55 else CH[chord][0]-12   # ---- voice 3: bass in 8ths
@@ -76,7 +85,9 @@ for bi,(bar,f) in enumerate(SONG):
         for i,(fq,g) in enumerate(shape):
             if k0+i<NF:V[1]['w'][k0+i]='n';V[1]['f'][k0+i]=fq;V[1]['g'][k0+i]=g
     fr+=16*SPEED
-for k in range(NF):V[0]['pw'][k]=0.5 if k<4*16*SPEED else 0.3+0.2*np.sin(2*np.pi*k/160)   # square in the intro, sweeping after
+for k in range(NF):
+    if k<4*16*SPEED:V[0]['pw'][k]=0.5
+    else:q=(k%56)/28;V[0]['pw'][k]=0.06+0.84*(q if q<=1 else 2-q)        # 1/32 per frame up, then down   # square in the intro, sweeping after
 rng=np.random.default_rng(64);NOISE=rng.uniform(-1,1,1<<16)
 out=np.zeros(NF*SPF)
 for vi,v in enumerate(V):
