@@ -1,4 +1,4 @@
-# "Datasette Run" - an original C64-style tune, rendered with SID-like limits:
+# "Claude does C64" - an original C64-style tune, rendered with SID-like limits:
 # 3 voices, pulse/saw/triangle/noise, 50 Hz (PAL) frame updates, arpeggio chords, drums sharing voice 3, resonant filter on the bass.
 import numpy as np, scipy.signal as ss, wave, sys
 SR=44100; FR=50; SPF=SR//FR; SPEED=5           # 5 frames per 16th step -> 150 BPM

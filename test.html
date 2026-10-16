@@ -318,7 +318,7 @@ MUSIC.stage5={src:'music/stage5.mp3',ls:35.142,le:84.881,drop:14.662,beat:0.3657
 MUSIC.ending={src:'music/ending.mp3',beat:0.46436,anchor:1.321,once:true,ls:0,le:999,buf:null};   // Victory Arpeggio - plays once, no loop
 // Jukebox: full, unedited versions (key 'f_'+track), played once through
 const FULL_DUR={c64:93.83,title:195.6,stage1:213.91,stage3h:238.87,stage4d:204.36,stage2:214.94,stage5:197.59,boss1:190.99,boss2:198.43,boss3:189.02,boss4:116.42,boss:149.23,ending:120.0,secret:160.34,stage:184.82,stage3:162.36,stage4:194.83,uhive:193.63,ub1:198.43,ub2:189.24};
-MUSIC.c64={src:'music/full/c64.mp3',ls:0,le:93.83,once:true,lazy:true,buf:null};   // Datasette Run: original C64-style tune, made in code (source/c64/sid.py)
+MUSIC.c64={src:'music/full/c64.mp3',ls:0,le:93.83,once:true,lazy:true,buf:null};   // Claude does C64: original C64-style tune, made in code (source/c64/sid.py)
 for(const k in FULL_DUR)MUSIC['f_'+k]={src:'music/full/'+k+'.mp3',ls:0,le:FULL_DUR[k],once:true,lazy:true,buf:null};
 function jbKey(k){return MUSIC['f_'+k]?'f_'+k:k;}
 function stageTrack(n){const k=n===1?'stage1':n===3&&MUSIC.stage3h?'stage3h':n===4?(MUSIC.stage4d?'stage4d':'stage4'):n===5?'stage5':['stage','stage2','stage3'][(n-1)%3];return MUSIC[k]?k:'stage';}
@@ -1944,7 +1944,7 @@ function startCheatGame(){
 }
 const ATTRACT=['scores','roster','howto'];
 const TRACKS=[{k:'title',n:'Bang Shoot! (title song)'},{k:'stage1',n:'E Minor Assault (stage 1)'},{k:'stage3h',n:'Arcade Climax (stage 3)'},{k:'stage4d',n:'Full Power (stage 4)'},{k:'stage2',n:'Arcade Rush (stage 2)'},
-  {k:'stage5',n:'Final Battle (stage 5)'},{k:'boss1',n:'Mothership (boss 1)'},{k:'boss2',n:'Crystal Queen (boss 2)'},{k:'boss3',n:'Hive Mother (boss 3)'},{k:'boss4',n:'Dreadnought (boss 4)'},{k:'boss',n:'Final Boss Rush (final boss)'},{k:'ending',n:'Victory Arpeggio (ending)'},{k:'c64',n:'Datasette Run (C64 style)'},
+  {k:'stage5',n:'Final Battle (stage 5)'},{k:'boss1',n:'Mothership (boss 1)'},{k:'boss2',n:'Crystal Queen (boss 2)'},{k:'boss3',n:'Hive Mother (boss 3)'},{k:'boss4',n:'Dreadnought (boss 4)'},{k:'boss',n:'Final Boss Rush (final boss)'},{k:'ending',n:'Victory Arpeggio (ending)'},{k:'c64',n:'Claude does C64'},
   {k:'stage',n:'Pixel Blaster',u:1},{k:'stage3',n:'Pixelata Space',u:1},{k:'stage4',n:'Hammer Press',u:1},{k:'uhive',n:'Insectoid Arpeggio',u:1},{k:'ub1',n:'Battleship Assault',u:1},{k:'ub2',n:'Battleship Assault 2',u:1}];
 function flash(m){MENU.msg=m;MENU.msgT=2.8;}
 function goTitle(scr){if(PROG.secretNew){PROG.secretNew=false;saveProg();showToast('Secret song unlocked in the Jukebox');}if(typeof muffle==='function')muffle(false);G.state='title';timers.length=0;BS.on=false;enemies.length=0;eb.length=0;pb.length=0;pups.length=0;MENU.scr=scr||'main';MENU.sel=0;MENU.idle=0;MENU.sync=null;G.paused=false;
