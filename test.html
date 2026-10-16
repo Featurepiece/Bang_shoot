@@ -1400,7 +1400,8 @@ function swapWeapon(){
   popup(pl.x,pl.y-16,WNAME[w],WCOL[w]);if(!sx('weapon-swap',1,1)){tone('square',520,1040,0.08,0.05);tone('square',1040,1040,0.05,0.04,0.08);}
   P(3,pl.x,pl.y,0,0,0.3,4,30,WCOL[w]);rumble(0.2,0.4,90,true);
 }
-function nearestEnemy(x,y){let best=null,bd=1e9;for(const e of enemies){if(e.dead||e.dying||e.entering||e.hidden||e.prot||e.x>W+10||e.x<x-40||e.type==='mb_magnet')continue;let d=(e.x-x)**2+(e.y-y)**2;if(e.type==='titan'||(e.type||'').startsWith('tp_'))d*=0.25;if(d<bd){bd=d;best=e;}}return best;}
+const HOMING_RANGE=190;
+function nearestEnemy(x,y,lock){let best=null,bd=1e9;for(const e of enemies){if(e.dead||e.dying||e.entering||e.hidden||e.prot||e.x>W+10||e.x<x-40||e.type==='mb_magnet')continue;if(lock&&Math.hypot(e.x-pl.x,e.y-pl.y)>HOMING_RANGE+(e.isBoss?60:0))continue;let d=(e.x-x)**2+(e.y-y)**2;if(e.type==='titan'||(e.type||'').startsWith('tp_'))d*=0.25;if(d<bd){bd=d;best=e;}}return best;}
 const PAT=[null,[[0,0]],[[-4,0],[4,0]],[[0,0],[-3,-0.12],[3,0.12]],[[-4,0],[4,0],[-3,-0.16],[3,0.16]],
   [[0,0],[-5,0],[5,0],[-3,-0.14],[3,0.14],[-2,-0.28],[2,0.28]]];
 function fireWeapon(x,y,lv,w,sc,tm){
@@ -1416,7 +1417,7 @@ function fireWeapon(x,y,lv,w,sc,tm){
   }else{
     pb.push({k:'pulse',x,y,vx:520,vy:0,dmg:0.6*sc,dead:false});
     if(tm.misT<=0){tm.misT=0.24;const cnt=[0,1,2,3,4,5][lv];if(tm===pl&&!sx('missile-launch',1,rnd(0.94,1.06))){noiseHit(0.16,0.09,5200,900);tone('sawtooth',240,720,0.14,0.035);}
-      for(let i=0;i<cnt;i++){const a=(i%2?1:-1)*(0.6+0.25*Math.floor(i/2));pb.push({k:'homing',x:x-8,y,vx:Math.cos(a)*170,vy:Math.sin(a)*170,dmg:1.5*sc,life:3,tgt:null,rt:0,dead:false});}}
+      for(let i=0;i<cnt;i++){const a=(i%2?1:-1)*(0.6+0.25*Math.floor(i/2));pb.push({k:'homing',x:x-8,y,vx:Math.cos(a)*170,vy:Math.sin(a)*170,dmg:1.5*sc,life:1.1,tgt:null,rt:0,dead:false});}}
   }
   P(0,x+2,y,0,0,0.05,6,3,WCOL[w]);
 }
@@ -1561,7 +1562,7 @@ function bomb(){
 function updateBullets(dt){
   for(const b of pb){
     if(b.k==='homing'||b.k==='dmis'){
-      b.life-=dt;b.rt-=dt;if(!b.tgt||b.tgt.dead||b.tgt.dying||b.rt<=0){b.tgt=nearestEnemy(b.x,b.y);b.rt=0.15;}
+      b.life-=dt;b.rt-=dt;if(!b.tgt||b.tgt.dead||b.tgt.dying||b.rt<=0){b.tgt=nearestEnemy(b.x,b.y,b.k==='homing');b.rt=0.15;}
       const dm=b.k==='dmis',sp=Math.min(dm?280:420,Math.hypot(b.vx,b.vy)+(dm?160:320)*dt);let a=Math.atan2(b.vy,b.vx);
       if(b.tgt){let d=Math.atan2(b.tgt.y-b.y,b.tgt.x-b.x)-a;d=Math.atan2(Math.sin(d),Math.cos(d));a+=clamp(d,-(dm?2.5:3.5)*dt,(dm?2.5:3.5)*dt);}
       else a+=clamp(-a,-3*dt,3*dt);
