@@ -659,11 +659,18 @@ function gateUpdate(){for(let i=GATE.list.length-1;i>=0;i--)if(GATE.list[i].X<G.
 function gateC(X){let L=null,R=null;for(const g of GATE.list){if(g.X<=X){if(!L||g.X>L.X)L=g;}else if(!R||g.X<R.X)R=g;}
   if(L&&R)return R.c+(L.c-R.c)*((R.X-X)/(R.X-L.X));return L?L.c:R?R.c:null;}
 // a solid pillar at screen point (x,y)?
-function gateHit(x,y,pad){for(const g of GATE.list){const gx=g.X-G.scroll;if(Math.abs(x-gx)<GATE_HW+(pad||0)&&(y<g.top||y>g.bot))return g;}return null;}
+const TOW_PROF=[1.0, 1.0, 1.0, 0.911, 0.874, 0.832, 0.792, 0.755, 0.658, 0.698, 0.735, 0.735, 0.735, 0.735, 0.735, 0.735, 0.735, 0.708, 0.668, 0.646, 0.668, 0.668, 0.668, 0.668, 0.668, 0.668, 0.638, 0.599, 0.599, 0.621, 0.621, 0.621, 0.621, 0.621, 0.615, 0.575, 0.536, 0.571, 0.573, 0.573, 0.573, 0.573, 0.573, 0.54, 0.5, 0.46, 0.433, 0.439, 0.455, 0.464, 0.462, 0.455, 0.433, 0.415, 0.387, 0.36, 0.342, 0.32, 0.294, 0.269, 0.245, 0.221, 0.038, 0.034, 0.028, 0.018],TOW_IW=506,TOW_IH=655;   // tower width (fraction of full width) every 10 px of the art, top to tip
+// half-width of a tower at depth d above its tip (d<0 = past the tip); matches drawPillar: tip part at natural size, then repeated armour blocks, cap at the ceiling
+function towHalf(d,reach){if(d<0)return -1;const k=GATE_W/TOW_IW,row0=TOW_IH-d/k;let row;
+  if(reach<=TOW_IH*k||d<=(TOW_IH-TOW_IH*TOW.band1)*k)row=row0;else{const bh=(TOW.band1-TOW.band0)*TOW_IH*k,lowH=(1-TOW.band1)*TOW_IH*k;row=TOW_IH*TOW.band1-(((d-lowH)%bh)/k);}
+  if(d>reach-(TOW.cap*TOW_IH*k))row=Math.min(row,40);
+  row=clamp(row,0,TOW_IH-1);return GATE_W*TOW_PROF[Math.min(TOW_PROF.length-1,(row/10)|0)]/2;}
+function gateHalfAt(g,y){if(y<g.top+4)return towHalf(g.top+4-y,g.top+10);if(y>g.bot-4)return towHalf(y-(g.bot-4),H-g.bot+10);return -1;}
+function gateHit(x,y,pad){for(const g of GATE.list){const gx=g.X-G.scroll;if(Math.abs(x-gx)>GATE_W)continue;const h=gateHalfAt(g,y);if(h>0&&Math.abs(x-gx)<h+(pad||0))return g;}return null;}
 function gatePlayer(){
   if(!GATE.list.length||!pl.alive||G.state!=='play')return;
-  for(const g of GATE.list){const gx=g.X-G.scroll,ox=GATE_HW+9-Math.abs(pl.x-gx);if(ox<=0)continue;
-    const oy=pl.y-5<g.top?g.top-(pl.y-5):pl.y+5>g.bot?(pl.y+5)-g.bot:0;if(oy<=0)continue;
+  for(const g of GATE.list){const gx=g.X-G.scroll,h=Math.max(gateHalfAt(g,pl.y-5),gateHalfAt(g,pl.y+5),gateHalfAt(g,pl.y));if(h<=0)continue;const ox=h+9-Math.abs(pl.x-gx);if(ox<=0)continue;
+    const oy=pl.y-5<g.top+4?g.top+4-(pl.y-5):pl.y+5>g.bot-4?(pl.y+5)-(g.bot-4):0;if(oy<=0)continue;
     if(oy<ox){pl.y+=pl.y-5<g.top?oy:-oy;}else pl.x+=pl.x<gx?-ox:ox;   // push out the shortest way
     pl.x=Math.max(8,pl.x);
     if(Math.random()<0.5)P(1,pl.x,pl.y,rnd(-150,-40),rnd(-80,80),0.2,1.6,0,C.gold,5);
@@ -1509,20 +1516,23 @@ function updatePlayer(dt){
   if(pl.inv>0)pl.inv-=dt;
   pl.fireT-=dt;
   const noFire=G.clearing||G.clearT>0;   // no shooting during the stage-clear transition; comes back when the next stage starts
-  let firing=!noFire&&(keys.Space||keys.KeyZ||keys.KeyJ||drag.id!==null||GP.fire);
+  const btn=!noFire&&!!(keys.Space||keys.KeyZ||keys.KeyJ||GP.fire),touchAuto=!noFire&&drag.id!==null;
+  if(btn&&!pl.fireHeld)pl.fireQ=0.25;pl.fireHeld=btn;if(pl.fireQ>0)pl.fireQ-=dt;   // a new press queues one shot (kept for 0.25 s)
+  let firing=btn||touchAuto;
   const charging=!noFire&&!!(keys.KeyV||GP.charge||CH.touch!==null);
   if(charging){CH.t=Math.min(1.3,CH.t+dt);firing=false;chargeSound(true);
     const n=SHIP.ok?SHIP.nose:[16,1],[cx,cy]=shipPt(n[0],n[1],pl.x,pl.y,pl.tilt);
     if(Math.random()<Q){const a=Math.random()*TAU,r=16+Math.random()*10;const q=P(0,cx+Math.cos(a)*r,cy+Math.sin(a)*r,-Math.cos(a)*r*5,-Math.sin(a)*r*5,0.2,2,0.5,CH.t>=1.2?C.white:'#7ff3ff',0);}}
   else if(CH.t>0){if(CH.t>=0.35&&!noFire)releaseBeam(CH.t);CH.t=0;chargeSound(false);}
   pl.misT=(pl.misT||0)-dt;
-  G.firing=firing;fireSound(firing);updateHealth(dt);
+  G.firingT=Math.max(0,(G.firingT||0)-dt);G.fsT=Math.max(0,(G.fsT||0)-dt);
+  G.firing=G.firingT>0;fireSound(G.fsT>0||(touchAuto&&firing));updateHealth(dt);
   updateDrone(dt);droneMissiles(dt);
   pl.dropT=(pl.dropT||0)-dt;
   const dropping=!!(keys.KeyF||GP.drop||DRB.touch!==null);
   if(dropping&&pl.dropT<=0&&pb.filter(b=>b.k==='drop').length<2){pl.dropT=0.45;
     pb.push({k:'drop',x:pl.x-2,y:pl.y+7,vx:70,vy:25,dmg:5,dead:false,rot:0});if(!sx('bomb-drop',1,rnd(0.95,1.05))){tone('sine',1000,420,0.35,0.018);}}
-  if(firing&&pl.fireT<=0){pl.fireT=WRATE[G.weapon];playerFire();}
+  if(firing&&pl.fireT<=0&&(pl.fireQ>0||touchAuto)){pl.fireT=WRATE[G.weapon];pl.fireQ=0;playerFire();G.firingT=0.4;G.fsT=0.12;}
   if(Math.random()<Q){const z=SHIP.ok?SHIP.noz:[-15,0],[ex,ey]=shipPt(z[0]-2,z[1],pl.x,pl.y,pl.tilt);
     P(0,ex,ey+rnd(-1.5,1.5),-rnd(80,140)*pl.thrust,rnd(-8,8),rnd(0.1,0.2),rnd(2,3.5),0.3,pick([C.ember,C.gold]),1);}
 }
@@ -1595,6 +1605,9 @@ function updateBullets(dt){
     if(BS.on&&!b.dead&&b.y>hullTopSX(b.x-BS.x0)){   // shots stop on the deck (the bridge tower itself is the target)
 b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd(-80,-10),0.15,1.4,0,C.gold,6);}
     if(TUN.on&&!b.dead){const t=tunAt(b.x+G.scroll);if(t&&(b.y<t.ceil||b.y>t.floor)){b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,C.gold,6);}}
+    if(DN.eng&&!b.dead&&b.y<dnEngBottom(b.x)){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(10,60),0.15,1.4,0,C.gold,6);}
+    if(BS.on&&!b.dead&&b.y>trowTopSX(b.x-BS.x0)){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-80,-10),0.15,1.4,0,C.gold,6);}
+    if(FL.presses.length&&!b.dead)for(const q of FL.presses)if(q.st>=1&&Math.abs(b.x-q.x)<PR_W*0.42&&b.y<q.yb){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,C.gold,6);break;}
     if(HV.walls&&!b.dead&&hvWallHit(b.x,b.y)){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,'#9dff3d',6);}
     if(GATE.list.length&&!b.dead&&gateHit(b.x,b.y)){b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,C.gold,6);}
   }
@@ -1602,6 +1615,8 @@ b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd
     if(b.ho>0&&pl.alive){b.ho-=dt;const a=Math.atan2(b.vy,b.vx),ta=Math.atan2(pl.y-b.y,pl.x-b.x),sp=Math.hypot(b.vx,b.vy),da=Math.atan2(Math.sin(ta-a),Math.cos(ta-a)),na=a+clamp(da,-2.2*dt,2.2*dt);b.vx=Math.cos(na)*sp;b.vy=Math.sin(na)*sp;}
     if(b.dive>0){b.dive-=dt;if(b.dive<=0){const a=Math.atan2((pl.alive?pl.y:H/2)-b.y,(pl.alive?pl.x:60)-b.x);b.vx=Math.cos(a)*125*DF.spd;b.vy=Math.sin(a)*125*DF.spd;}}if(b.m&&Math.random()<0.5*Q)P(2,b.x+rnd(-1,1),b.y+(b.vy>0?-5:5),rnd(-6,6),b.vy>0?-25:25,0.45,1.5,4,null,1);if(b.bn>0){const tp=ceilY(b.x)+4,bt=groundY(b.x)-3;if((b.y<tp&&b.vy<0)||(b.y>bt&&b.vy>0)){b.vy=-b.vy;b.bn--;P(0,b.x,b.y,0,0,0.15,7,2,b.col);}}b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<-20||b.x>W+20||b.y<-40||b.y>H+20)b.dead=true;
     if(TUN.on&&!b.dead){const t=tunAt(b.x+G.scroll);if(t&&t.r>0.5&&(b.y<t.ceil-2||b.y>t.floor+2)){b.dead=true;P(0,b.x,b.y,0,0,0.12,4,1,b.col||C.hot);}}
+    if(DN.eng&&!b.dead&&b.y<dnEngBottom(b.x)-2){b.dead=true;P(0,b.x,b.y,0,0,0.12,4,1,b.col||C.hot);}
+    if(FL.presses.length&&!b.dead)for(const q of FL.presses)if(q.st>=1&&Math.abs(b.x-q.x)<PR_W*0.4&&b.y<q.yb-2){b.dead=true;P(0,b.x,b.y,0,0,0.12,4,1,b.col||C.hot);break;}
     if(HV.walls&&!b.dead&&hvWallHit(b.x,b.y,2)){b.dead=true;P(0,b.x,b.y,0,0,0.12,4,1,b.col||C.hot);}
     if(GATE.list.length&&!b.dead&&gateHit(b.x,b.y,-2)){b.dead=true;P(0,b.x,b.y,0,0,0.12,4,1,b.col||C.hot);}}
 }
@@ -2436,7 +2451,7 @@ function fireSound(on){
 }
 
 /* ---------- controller (Gamepad API, standard/Xbox layout) ---------- */
-// A / RT / RB fire (hold) · B / X / LB / LT smart bomb · Start pause · Y / View music · left stick or d-pad move
+// A / RT / RB fire (one shot per press) · B / X / LB / LT smart bomb · Start pause · Y / View music · left stick or d-pad move
 const GP={idx:null,prev:[],mx:0,my:0,fire:false,active:false,pad:null};
 let toast={txt:'',t:0};
 function showToast(t){toast={txt:t,t:2.5};}
