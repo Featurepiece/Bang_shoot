@@ -100,24 +100,39 @@ function drawHiveWalls(){const w=HV.walls;if(!w)return;const a=HVA.wall.img;if(!
 ART.serpg={dw:44,dh:24,cr:0,core:[0,0],gc:'#9dff3d',pal:PAL_HIVE};DEF.serpg={hp:200,score:20000,pw:4,drop:1};
 ART.hpod={dw:40,dh:18,cr:0,core:[0,0],gc:'#9dff3d',pal:PAL_HIVE};DEF.hpod={hp:7,score:500,pw:1.6,drop:0.12};
 const SERP_N=16,SERP_SP=17,SERP_R=11;
-function serpSpawn(){const first=!G.seen.serpTip;G.seen.serpTip=1;const e=E('serpg',W+80,H*0.35,{t0:0,hist:[],st:'in',ang:Math.PI,spT:2.5,bite:0,biteT:3,tipT:first?6:0,hw:26,hh:16,glow:0});
-  for(let k=0;k<SERP_N*SERP_SP+40;k+=2)e.hist.push({x:W+80+k,y:H*0.35});HV.serp=e;
+function serpSpawn(){const first=!G.seen.serpTip;G.seen.serpTip=1;
+  const e=E('serpg',W+90,H*0.4,{t0:0,hist:[],st:'in',h:Math.PI,v:95,nx:W+70,ny:H*0.4,wx:W*0.6,wy:H*0.45,wT:3,o:1,spT:3,lunge:0,biteT:3,tipT:first?6:0,hw:26,hh:16,glow:0});
+  for(let k=0;k<SERP_N*SERP_SP+40;k+=2)e.hist.push({x:W+70+k,y:H*0.4});HV.serp=e;e.sg=[];for(let i=0;i<SERP_N;i++)e.sg.push(serpPos(e,i));
   if(!sx('miniboss-arrive',1,0.7)){tone('square',220,220,0.2,0.05);}shake(0.25);}
 function serpPos(e,i){let need=(i+1)*SERP_SP,acc=0,p=e.hist[0];for(let k=1;k<e.hist.length;k++){const q=e.hist[k],d=Math.hypot(q.x-p.x,q.y-p.y);if(acc+d>=need){const f=(need-acc)/(d||1);return [p.x+(q.x-p.x)*f,p.y+(q.y-p.y)*f,Math.atan2(p.y-q.y,p.x-q.x)];}acc+=d;p=q;}return [p.x,p.y,0];}
-function serpUpdate(e,dt){const t=(e.t0+=dt);const leave=e.st==='out';
-  let cx=leave?W*0.55-Math.max(0,(t-e.outT))*180:W*0.55+Math.max(0,2.5-t)*130,cy=H*0.5;
-  let tx=cx+Math.sin(t*0.55)*W*0.36,ty=cy+Math.sin(t*1.1+0.6)*H*0.3;
-  if(e.bite>0){e.bite-=dt;const k=Math.sin((1-e.bite/0.45)*Math.PI);tx+=e.bx*k*55;ty+=e.by*k*55;}
-  const dx=tx-(e.nx||tx),dy=ty-(e.ny||ty);if(Math.hypot(dx,dy)>0.5)e.ang=Math.atan2(dy,dx);e.nx=tx;e.ny=ty;e.x=tx+Math.cos(e.ang)*18;e.y=ty+Math.sin(e.ang)*18;   // e.x/e.y = the head (the hit point)
+// steering: the head always swims forward and turns towards a target at a limited rate, so its path is one smooth curve;
+// a gentle slither is added to the direction of travel and ripples down the body because the body follows the path
+function serpPick(e){const near=pl.alive&&Math.random()<0.4;
+  e.wx=near?clamp(pl.x+rnd(40,120),W*0.3,W-50):rnd(W*0.35,W-50);e.wy=near?clamp(pl.y+rnd(-30,30),45,H-45):rnd(45,H-45);e.wT=rnd(2.5,4);}
+function serpUpdate(e,dt){const t=(e.t0+=dt),leave=e.st==='out';
+  if(e.st==='in'&&e.nx<W-40)e.st='swim';
+  if(leave){e.wx=-400;e.wy=H*0.5;}
+  else{e.wT-=dt;if(e.wT<=0||Math.hypot(e.wx-e.nx,e.wy-e.ny)<45)serpPick(e);}
+  // lunge (the bite): a smooth burst of speed straight at you, then it eases back
+  e.biteT-=dt;
+  if(!leave&&G.state==='play'&&pl.alive&&e.lunge<=0&&e.biteT<=0&&Math.hypot(pl.x-e.x,pl.y-e.y)<120){e.lunge=0.6;e.biteT=2.6;e.wx=pl.x;e.wy=pl.y;sx('armour-chip',0.6,1.4);}
+  const lk=e.lunge>0?Math.sin((1-e.lunge/0.6)*Math.PI):0;if(e.lunge>0)e.lunge-=dt;
+  const want=Math.atan2(e.wy-e.ny,e.wx-e.nx),diffA=Math.atan2(Math.sin(want-e.h),Math.cos(want-e.h)),rate=leave?1.6:(1.7+1.6*lk);
+  e.h+=clamp(diffA*2.2,-rate,rate)*dt;                                   // smooth, limited turning
+  const vT=leave?170:95+150*lk;e.v+=(vT-e.v)*Math.min(1,dt*3);            // speed eases, never jumps
+  const mv=e.h+Math.sin(t*2.6)*0.32*(1-lk);                              // slither
+  e.nx+=Math.cos(mv)*e.v*dt;e.ny+=Math.sin(mv)*e.v*dt;
+  if(!leave){e.ny=clamp(e.ny,30,H-30);if(e.st!=='in')e.nx=Math.max(e.nx,20);}
+  e.ang=e.h;e.x=e.nx+Math.cos(e.h)*18;e.y=e.ny+Math.sin(e.h)*18;          // e.x/e.y = the head (the hit point)
+  // the head rolls over smoothly when it turns round (no instant mirror flip); a little hysteresis stops it dithering near vertical
+  const c=Math.cos(e.h);if(c<-0.25)e.oT=1;else if(c>0.25)e.oT=-1;e.o+=((e.oT||1)-e.o)*Math.min(1,dt*5);
   e.hist.unshift({x:e.nx,y:e.ny});if(e.hist.length>420)e.hist.length=420;e.sg=[];for(let i=0;i<SERP_N;i++)e.sg.push(serpPos(e,i));
-  if(leave&&e.x<-SERP_N*SERP_SP-100){e.dead=true;HV.serp=null;return;}
+  if(leave&&e.nx<-SERP_N*SERP_SP-100){e.dead=true;HV.serp=null;return;}
   if(G.state!=='play'||leave)return;
   // spit: the mouth glows, then acid
   e.spT-=dt*DF.fire;e.glow=e.spT<0.8?1:0;
-  if(e.spT<=0){e.spT=2.3;const mx=e.x+Math.cos(e.ang)*16,my=e.y+Math.sin(e.ang)*16,a=pl.alive?Math.atan2(pl.y-my,pl.x-mx):e.ang;
+  if(e.spT<=0){e.spT=2.3;const mx=e.x+Math.cos(e.h)*16,my=e.y+Math.sin(e.h)*16,a=pl.alive?Math.atan2(pl.y-my,pl.x-mx):e.h;
     for(const s of [-0.36,-0.18,0,0.18,0.36])shootE(mx,my,Math.cos(a+s)*110,Math.sin(a+s)*110,'#b6ff3d');if(!sx('spit',1,0.9))tone('sine',180,90,0.2,0.05);}
-  // bite: lunges at you when you're close in front of it
-  e.biteT-=dt;if(pl.alive&&e.biteT<=0&&e.bite<=0&&Math.hypot(pl.x-e.x,pl.y-e.y)<100){const a=Math.atan2(pl.y-e.y,pl.x-e.x);e.bx=Math.cos(a);e.by=Math.sin(a);e.bite=0.45;e.biteT=2.2;sx('armour-chip',0.6,1.4);shake(0.12);}
   // the body pushes and hurts
   if(pl.alive)for(let i=0;i<SERP_N;i++){const [x,y]=e.sg[i],ddx=pl.x-x,ddy=pl.y-y,d=Math.hypot(ddx,ddy);
     if(d<SERP_R+6){const k=(SERP_R+7)/(d||1);pl.x=clamp(x+ddx*k,8,W-8);pl.y=clamp(y+ddy*k,10,H-10);if(OPT.diff!=='easy'&&pl.inv<=0)playerDamage(25);break;}}}
@@ -129,7 +144,7 @@ function drawSerpent(e){const S=HVA.seg,Hd=e.glow?HVA.headG:HVA.head;ctx.save();
   const segs=e.sg||[];if(segs.length<SERP_N){ctx.restore();return;}
   const one=(i)=>{const [x,y,a]=segs[i];ctx.save();ctx.translate(x,y);ctx.rotate(a);if(S.img.complete)ctx.drawImage(S.img,-sw/2,-sh/2,sw,sh);ctx.restore();};
   for(let i=SERP_N-1;i>=0;i--)one(i);
-  ctx.save();ctx.translate(e.nx||e.x,e.ny||e.y);if(Math.cos(e.ang)<0)ctx.rotate(e.ang-Math.PI);else{ctx.rotate(e.ang);ctx.scale(-1,1);}if(Hd.img.complete)ctx.drawImage(Hd.img,-hw*0.78,-hh/2,hw,hh);
+  ctx.save();ctx.translate(e.nx,e.ny);ctx.rotate(e.h-Math.PI);ctx.scale(1,Math.abs(e.o)<0.15?(e.o<0?-0.15:0.15):e.o);if(Hd.img.complete)ctx.drawImage(Hd.img,-hw*0.78,-hh/2,hw,hh);
   if(e.flash>0){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.7;ctx.drawImage(glow(C.white),-hw*0.75,-hh/2,hw*0.8,hh);}ctx.restore();
   if(e.glow){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=0.5+0.3*Math.sin(G.t*30);const mx=e.x+Math.cos(e.ang)*16,my=e.y+Math.sin(e.ang)*16;ctx.drawImage(glow('#d8ff3d'),mx-12,my-12,24,24);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';}
   if(e.tipT>0&&e.x>20&&e.x<W-20){e.tipT-=fdt;drawTip(e.x,e.y,e.tipT);}
