@@ -316,6 +316,10 @@ MUSIC.stage4d={src:'music/stage4-dread.mp3',ls:96.27,le:141.0,drop:3.48,beat:0.4
 MUSIC.stage4={src:'music/stage4.mp3',ls:40.042,le:85.865,drop:13.18,beat:0.39502,anchor:13.18,buf:null};   // Hammer Press (stage 4, the Dreadnought)
 MUSIC.stage5={src:'music/stage5.mp3',ls:35.142,le:84.881,drop:14.662,beat:0.36572,anchor:14.662,buf:null};   // Final Battle (stage 5, the Robot Base)
 MUSIC.ending={src:'music/ending.mp3',beat:0.46436,anchor:1.321,once:true,ls:0,le:999,buf:null};   // Victory Arpeggio - plays once, no loop
+// Jukebox: full, unedited versions (key 'f_'+track), played once through
+const FULL_DUR={title:195.6,stage1:213.91,stage3h:238.87,stage4d:204.36,stage2:214.94,stage5:197.59,boss1:190.99,boss2:198.43,boss3:189.02,boss4:116.42,boss:149.23,ending:120.0,secret:160.34,stage:184.82,stage3:162.36,stage4:194.83,uhive:193.63,ub1:198.43,ub2:189.24};
+for(const k in FULL_DUR)MUSIC['f_'+k]={src:'music/full/'+k+'.mp3',ls:0,le:FULL_DUR[k],once:true,lazy:true,buf:null};
+function jbKey(k){return MUSIC['f_'+k]?'f_'+k:k;}
 function stageTrack(n){const k=n===1?'stage1':n===3&&MUSIC.stage3h?'stage3h':n===4?(MUSIC.stage4d?'stage4d':'stage4'):n===5?'stage5':['stage','stage2','stage3'][(n-1)%3];return MUSIC[k]?k:'stage';}
 const BEAT={pulse:0,bar:0,idx:-1,col:'#3dfcff',boss:false};
 const RINGS=[];
@@ -2081,11 +2085,17 @@ function menuInput(a){
       else if(it.k==='resume')startSync(true);
       else if(it.k==='copy')copyTimings();
       else if(it.k==='clear'){LYR_T=null;try{localStorage.removeItem('bangshoot-lyrics');}catch(e){}flash('Lyric timings cleared');}
-      else{if(MENU.playing===it.k&&M.node&&M.name===it.k){musicOff(0.6);MENU.playing='none';}
-        else{if(A.ctx)stopMusic(0.3);playMusic(it.k,0,0.2);MENU.playing=it.k;if(!MUSIC[it.k].buf){loadTrack(it.k);flash('Loading...');}}}}
+      else jbPlay(it.k);}
     return;}
 }
 function secretOn(){return !!(PROG.beat||CHEAT.on);}
+function jbPlay(k){const f=jbKey(k);if(MENU.playing===f&&M.node&&M.name===f){musicOff(0.6);MENU.playing='none';return;}
+  if(A.ctx)stopMusic(0.3);playMusic(f,0,0.2);MENU.playing=f;if(!MUSIC[f].buf){loadTrack(f);flash('Loading...');}}
+// when a full version reaches its end, the next track starts (the list stops after the last one)
+function jbAdvance(){if(!M.node||!M.name||!M.name.startsWith('f_')||!A.ctx)return;const t=MUSIC[M.name];if(!t.buf)return;
+  if(M.offset+(A.ctx.currentTime-M.startedAt)<t.buf.duration-0.05)return;
+  const it=jukeItems(),i=it.findIndex(x=>jbKey(x.k)===M.name);let j=i+1;while(j<it.length&&it[j].k==='hdr')j++;
+  if(i<0||j>=it.length||it[j].k==='back'){musicOff(0.2);MENU.playing='none';return;}MENU.playing=null;jbPlay(it[j].k);}
 function jukeItems(){const it=TRACKS.filter(t=>MUSIC[t.k]&&!t.u).map(t=>({k:t.k,n:t.n}));
   if(secretOn())it.push({k:'secret',n:'** Secret song **'});
   const un=TRACKS.filter(t=>MUSIC[t.k]&&t.u);if(un.length){it.push({k:'hdr',n:'Unused'});for(const t of un)it.push({k:t.k,n:t.n});}
@@ -2354,17 +2364,18 @@ function drawOptions(){
 function drawJukebox(){
   heading(MENU.sync?'Lyric sync':'Jukebox',16);
   if(MENU.sync){drawSync();return;}
+  jbAdvance();ctx.globalAlpha=0.75;centerText('Full, unedited versions',31,8,'#8d7fc0');ctx.globalAlpha=1;
   panel(10,40,236,210);
   const items=jukeItems();ctx.font=F8;ctx.textBaseline='middle';ctx.textAlign='left';
   const [tp,rw]=jbTop(items.length);
   if(tp>0)txt('^',230,JB_Y-9,'#b9a8e8');if(tp+rw<items.length)txt('v',230,JB_Y+rw*JB_DY-4,'#b9a8e8');
-  items.forEach((it,i)=>{if(i<tp||i>=tp+rw)return;const y=JB_Y+(i-tp)*JB_DY,on=i===MENU.sel,pl_=MENU.playing===it.k&&M.name===it.k&&M.node;
+  items.forEach((it,i)=>{if(i<tp||i>=tp+rw)return;const y=JB_Y+(i-tp)*JB_DY,on=i===MENU.sel,pl_=MENU.playing===jbKey(it.k)&&M.name===jbKey(it.k)&&M.node;
     if(it.k==='hdr'){ctx.fillStyle='rgba(185,168,232,.35)';ctx.fillRect(16,y,40,1);ctx.fillRect(112,y,126,1);txt('Unused',62,y,'#8d7fc0');return;}
     txt((on?'> ':'  ')+it.n,16,y,pl_?C.gold:on?C.white:'#b9a8e8');});
   // visualiser
   drawVisualiser(256,40,214,120);
   if(M.node&&M.name&&MUSIC[M.name]){const t=MUSIC[M.name],p=trackPos(),tot=t.buf?t.buf.duration:t.le;
-    const nm=M.name==='secret'?'Secret song':(TRACKS.find(x=>x.k===M.name)||{}).n||M.name;ctx.font=F8;ctx.textAlign='left';txt('Now playing',260,170,'#b9a8e8');
+    const bk=M.name.replace(/^f_/,''),nm=bk==='secret'?'Secret song':(TRACKS.find(x=>x.k===bk)||{}).n||bk;ctx.font=F8;ctx.textAlign='left';txt(M.name.startsWith('f_')?'Now playing - full version':'Now playing',260,170,'#b9a8e8');
     txt(nm.length>33?nm.slice(0,32)+'.':nm,260,183,C.white);
     ctx.fillStyle='rgba(255,255,255,.15)';ctx.fillRect(260,193,200,3);ctx.fillStyle=C.gold;ctx.fillRect(260,193,200*clamp(p/tot,0,1),3);}
   if(MENU.msgT>0){ctx.globalAlpha=Math.min(1,MENU.msgT);centerText(MENU.msg,262,8,'#6dffa8');ctx.globalAlpha=1;}
