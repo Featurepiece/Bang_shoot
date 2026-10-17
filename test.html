@@ -517,6 +517,44 @@ function E(type,x,y,o){
   if(G.stage===5&&G.state==='play')flSkin(e);enemies.push(e);if(G.state==='play'&&!G.introGate&&G.seen)tagNew([e]);return e;
 }
 let DF={fire:1,spd:1,hp:1,spawn:1};   // current difficulty multipliers
+// Defender-inspired tuning (see source/defender_patch.py)
+const DFN={aimJit:16,leadChance:0.5,lead:0.8,shotCap:24,dodgeSpd:125,dodgeT:0.3,dodgeCD:[1.1,1.9],huntMax1:2,huntMax:3,huntChance:0.6,huntLife:9};
+function bossFiring(){return !!(G.boss||G.mini||(CUR_E&&(CUR_E.isBoss||CUR_E.mb)));}
+// sidestep out of the player's firing line (Defender's mutants keep off your line); returns true while dodging
+function dodgeLine(e,dt,d){
+  if(e.dodgeCD>0)e.dodgeCD-=dt;
+  if(e.dodgeT>0){e.dodgeT-=dt;e.y=clamp(e.y+e.dodgeV*dt,22,H-46);return true;}
+  if(pl.alive&&G.firing&&!(e.dodgeCD>0)&&e.x>pl.x+40&&e.x<W-10&&Math.abs(e.y-pl.y)<16){
+    let dir=e.y<pl.y?-1:1;if(e.y+dir*45<30||e.y+dir*45>H-60)dir=-dir;
+    e.dodgeV=dir*DFN.dodgeSpd*Math.min(1.4,d);e.dodgeT=DFN.dodgeT;e.dodgeCD=rnd(DFN.dodgeCD[0],DFN.dodgeCD[1])/Math.min(1.5,d);return true;}
+  return false;
+}
+// a drone that gets past you turns into a hunter (Defender's lander becoming a mutant)
+function canHunt(e){
+  if(e.huntRoll===undefined)e.huntRoll=Math.random()<DFN.huntChance;
+  if(!e.huntRoll||G.state!=='play'||G.boss||G.pre||G.mini||!pl.alive||e.tfollow||tunAt(e.x+G.scroll))return false;
+  let n=0;for(const q of enemies)if(q.hunter&&!q.dead&&!q.dying)n++;
+  return n<(G.stage<=1?DFN.huntMax1:DFN.huntMax);
+}
+function mutate(e){
+  e.hunter=true;e.ht=0;e.ph='circle';e.pt=rnd(1.2,1.8);e.hs=e.y<pl.y?-1:1;e.score*=2;e.amp=0;
+  popup(e.x,e.y-14,'HUNTER',C.hot);tone('sawtooth',180,620,0.4,0.05);P(3,e.x,e.y,0,0,0.3,6,14,C.hot);
+}
+function hunterUpdate(e,dt,d){
+  e.ht+=dt;
+  if(e.ht<0.6){e.rot=Math.sin(e.ht*50)*0.3;e.x+=rnd(-1,1);e.y+=rnd(-1,1);return;}   // shudder: the warning before it hunts
+  if(e.ht>DFN.huntLife||(!pl.alive&&e.ht>2)){e.x+=230*dt;e.rot*=0.9;if(e.x>W+40)e.dead=true;return;}
+  const tx=clamp(pl.x+150,120,W-30);
+  e.x+=Math.sign(tx-e.x)*Math.min(Math.abs(tx-e.x)*3,150+10*d)*dt;
+  e.pt-=dt;
+  if(e.pt<=0){if(e.ph==='strike'){e.ph='circle';e.pt=rnd(1.4,2.2)/Math.min(d,1.6);e.hs=-e.hs;}else{e.ph='strike';e.pt=0.9;e.shot=0;}}
+  let ty=null;
+  if(e.ph==='strike'){ty=pl.y;if(!e.shot&&e.pt<0.5&&G.state==='play'){e.shot=1;aim(e.x-6,e.y,120+15*d,2,0.12);}}
+  else if(!dodgeLine(e,dt,d))ty=pl.y+e.hs*36;   // hover just off your line
+  if(ty!==null)e.y+=Math.sign(ty-e.y)*Math.min(Math.abs(ty-e.y)*4,110+10*d)*dt;
+  e.y=clamp(e.y+rnd(-1,1)*40*dt,22,H-46);   // jitter (Defender's random hop)
+  e.rot=Math.sin(e.t*9)*0.15;
+}
 // every enemy shot gets a shape that says what it is; hit areas are unchanged (r stays 3)
 let SHK=null,CUR_E=null;   // set by aim() / radial() while they fire, and the enemy currently updating
 function shotKind(col,g,how,spd){
@@ -526,9 +564,13 @@ function shotKind(col,g,how,spd){
   if(col===HIVEB)return how==='radial'?'ring':'spit';
   if(how==='radial')return 'ring';
   return spd>=145?'needle':'orb';}
-function shootE(x,y,vx,vy,col,g){if(!g){vx*=DF.spd;vy*=DF.spd;}eb.push({x,y,vx,vy,r:3,dead:false,col,g,s:shotKind(col,g,SHK,Math.hypot(vx,vy))});}
+function shootE(x,y,vx,vy,col,g){if(eb.length>=DFN.shotCap&&!bossFiring())return;if(!g){vx*=DF.spd;vy*=DF.spd;}eb.push({x,y,vx,vy,r:3,dead:false,col,g,s:shotKind(col,g,SHK,Math.hypot(vx,vy))});}
 function aim(x,y,spd,n,spread,col){
-  n=n||1;spread=spread||0;const tx=pl.alive?pl.x:70,ty=pl.alive?pl.y:H/2,a=Math.atan2(ty-y,tx-x);
+  n=n||1;spread=spread||0;let tx=pl.alive?pl.x:70,ty=pl.alive?pl.y:H/2;
+  if(pl.alive&&!bossFiring()){const T=Math.hypot(tx-x,ty-y)/Math.max(40,spd*DF.spd);
+    if(Math.random()<DFN.leadChance){tx+=clamp((pl.vx||0)*T*DFN.lead,-120,120);ty+=clamp((pl.vy||0)*T*DFN.lead,-80,80);}
+    tx+=rnd(-DFN.aimJit,DFN.aimJit);ty+=rnd(-DFN.aimJit,DFN.aimJit);}
+  const a=Math.atan2(ty-y,tx-x);
   SHK='aim';for(let i=0;i<n;i++){const aa=a+(i-(n-1)/2)*spread;shootE(x,y,Math.cos(aa)*spd,Math.sin(aa)*spd,col);}SHK=null;
   P(0,x,y,0,0,0.1,8,4,col||C.hot);
 }
@@ -1266,6 +1308,8 @@ function updateEnemies(dt){
     if(e.dead)continue;e.t+=dt;if(e.flash>0)e.flash-=dt;CUR_E=e;
     if(e.mb){mbUpdate(e,dt,d);}else if(e.type==='mb_magnet'){if(!e.mbPart||e.mbPart.dead)e.dead=true;}else if(e.fx){fxUpdate(e,dt,d);}else switch(e.type){
       case 'drone':case 'swarm':
+        if(e.type==='drone'&&!e.hunter&&!e.dying&&e.t>1.5&&e.x<pl.x-20&&canHunt(e))mutate(e);
+        if(e.hunter){hunterUpdate(e,dt,d);break;}
         if(e.tfollow){const t=tunAt(e.x+G.scroll),gc=t?null:gateC(e.x+G.scroll);if(t)e.baseY+=(t.c-e.baseY)*Math.min(1,dt*4);else if(gc!==null)e.baseY+=(gc-e.baseY)*Math.min(1,dt*3);}
         if(e.lt>0){e.lt-=dt;e.baseY=clamp(e.baseY+e.lvy*dt,24,H-44);e.lvy*=Math.exp(-3*dt);}
         e.x-=e.spd*dt;e.y=e.baseY+Math.sin(e.t*e.freq+e.phase)*e.amp;
@@ -1276,7 +1320,7 @@ function updateEnemies(dt){
       case 'gunner':
         if(!e.leaving){
           if(e.x>e.stopX)e.x-=e.spd*dt;else{e.hold-=dt;if(e.hold<=0)e.leaving=true;}
-          e.y=clamp(e.y+Math.sin(e.t*2.2)*14*dt,20,H-40);
+          if(!dodgeLine(e,dt,d))e.y=clamp(e.y+Math.sin(e.t*2.2)*14*dt,20,H-40);
           e.fireT-=dt*DF.fire;if(e.fireT<=0&&e.x<W-10&&G.state==='play'){e.fireT=Math.max(0.6,1.5/d);aim(e.x+ART.gunner.fire[0],e.y+ART.gunner.fire[1],100+20*d,d>1.5?3:1,0.2);}
         }else e.x-=150*dt;
         break;
@@ -1521,7 +1565,7 @@ function updatePlayer(dt){
   mx+=GP.mx;my+=GP.my;
   const len=Math.max(1,Math.hypot(mx,my));const vmax=SPEEDS[G.speed];pl.x+=mx/len*vmax*dt;pl.y+=my/len*vmax*dt;
   pl.x=clamp(pl.x,26,W-26);pl.y=clamp(pl.y,12,H-12);
-  const ivx=(pl.x-pl.lx)/Math.max(dt,1e-4),ivy=(pl.y-pl.ly)/Math.max(dt,1e-4);pl.lx=pl.x;pl.ly=pl.y;
+  const ivx=(pl.x-pl.lx)/Math.max(dt,1e-4),ivy=(pl.y-pl.ly)/Math.max(dt,1e-4);pl.lx=pl.x;pl.ly=pl.y;pl.vx=ivx;pl.vy=ivy;
   const kk=Math.min(1,dt*10);
   pl.tilt+=(clamp(ivy/170,-1,1)*0.22-pl.tilt)*kk;
   pl.spd=Math.hypot(ivx,ivy);
@@ -3241,7 +3285,7 @@ const EN_PH=[0,3,9,17,40,72,85];      // collapse, escape, cockpit, fireworks, s
 const EN_MSGS=['TITAN PRIME ....... DESTROYED','ROBOT BASE ........ OFFLINE','ENEMY FLEETS ...... RETREATING','SETTING COURSE .... HOME'];
 const CREDITS=[['BANG SHOOT!',16,C.gold],['',8],['A game by Steven',8,C.white],['',8],['Game design & direction',8,'#b9a8e8'],['Steven',8,C.white],['',8],['Chief playtester',8,'#b9a8e8'],['Steven',8,C.white],['',8],
   ['Music, sound & voices',8,'#b9a8e8'],['made with Suno',8,C.white],['',8],['Artwork',8,'#b9a8e8'],['made with Google Gemini',8,C.white],['',8],['Code',8,'#b9a8e8'],['made with Claude by Anthropic',8,C.white],['',8],
-  ['Font',8,'#b9a8e8'],['Press Start 2P by CodeMan38',8,C.white],['',8],['Impact sounds',8,'#b9a8e8'],['Kenney (kenney.nl)',8,C.white],['',8],['Inspired by',8,'#b9a8e8'],['Jeff Minter',8,C.white],['R-Type  -  Armalyte',8,C.white],['Gradius  -  Darius',8,C.white],['',8],['',8],['Thanks for playing!',12,'#6dffa8']];
+  ['Font',8,'#b9a8e8'],['Press Start 2P by CodeMan38',8,C.white],['',8],['Impact sounds',8,'#b9a8e8'],['Kenney (kenney.nl)',8,C.white],['',8],['Inspired by',8,'#b9a8e8'],['Jeff Minter',8,C.white],['R-Type  -  Armalyte',8,C.white],['Gradius  -  Darius',8,C.white],['Defender',8,C.white],['',8],['',8],['Thanks for playing!',12,'#6dffa8']];
 function startEnding(){
   G.state='ending';Object.assign(EN,{t:0,phase:0,mt:-99,fw:[],fp:[],lastBeat:-1,tally:null,msg:0,roll:0,shipX:pl.x,shipY:pl.y,credY:H+20,done:false});
   eb.length=0;pups.length=0;pb.length=0;fireSound(false);
@@ -3935,6 +3979,7 @@ function drawEnemy(e){
   const img=fi>=0?a.frames[fi]:a.n;
   if(toughOne(e)&&!e.dying){if(flick(e)){ctx.globalAlpha=0.55;ctx.drawImage(tintOf(img,HITCOL),-a.dw/2,-a.dh/2+oy,a.dw,a.dh);}}
   else if(white){ctx.globalAlpha=e.dying?0.75:0.45;ctx.drawImage(fi>=0?a.wframes[fi]:a.w,-a.dw/2,-a.dh/2+oy,a.dw,a.dh);}
+  if(e.hunter&&!e.dying){ctx.globalAlpha=0.45+0.25*Math.sin(e.t*12);ctx.drawImage(tintOf(img,'#ff2d55'),-a.dw/2,-a.dh/2+oy,a.dw,a.dh);}
   ctx.restore();
 }
 const DW={showPl:false,title:false,px:0,py:0,tilt:0,thr:1,rec:0};
