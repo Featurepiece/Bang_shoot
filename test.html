@@ -31,6 +31,16 @@ canvas.px{image-rendering:crisp-edges;image-rendering:pixelated}
 'use strict';
 const W=480,H=270,SP=2,TAU=Math.PI*2,BOSS_AT=60;
 const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[(Math.random()*a.length)|0];
+// ---- fixed stages: seeded random numbers for everything that decides what a stage throws at you ----
+const NATIVE_RANDOM=Math.random,EARLY_WAVES=false;   // true: an empty screen calls the next wave early (makes stages vary with kill speed)
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function hashStr(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+const RS={key:null,n:{},st:{}};
+function rsSync(){const k=G.stage+'|'+(typeof OPT!=='undefined'?OPT.diff:'');if(RS.key!==k){RS.key=k;RS.n={};RS.st={};}return k;}
+function withRng(r,fn){const o=Math.random;Math.random=r;try{return fn();}finally{Math.random=o;}}
+function seeded(tag,fn){const k=rsSync(),n=RS.n[tag]=(RS.n[tag]||0)+1;return withRng(mulberry(hashStr(k+'|'+tag+'|'+n)),fn);}
+function inStream(tag,fn){const k=rsSync();return withRng(RS.st[tag]||(RS.st[tag]=mulberry(hashStr(k+'|'+tag))),fn);}
+function nativeRng(f){return function(){const o=Math.random;Math.random=NATIVE_RANDOM;try{return f.apply(this,arguments);}finally{Math.random=o;}};}
 const clamp=(v,a,b)=>v<a?a:v>b?b:v, mod=(a,b)=>((a%b)+b)%b;
 const C={void:'#07041a',ember:'#ff7a3d',gold:'#ffd24a',ice:'#7ff3ff',hot:'#ff3d6e',white:'#fff6e8',violet:'#b48cff',blue:'#8fb4ff'};
 const PAL_EN=[C.white,C.gold,C.ember], PAL_PL=[C.white,C.ice,C.blue], PAL_HOT=[C.white,C.hot,C.ember], PAL_VI=[C.white,C.violet,C.ice];
@@ -514,11 +524,12 @@ function faction(){return (G.stage===4||G.stage===5)?0:(G.stage-1)%3;}          
 function hpScale(){return 1+Math.floor((G.stage-1)/3)*0.6+((G.stage-1)%3)*0.15;}
 function E(type,x,y,o){
   const d=DEF[type],s=SPR[type]||SPR.drone,hp=d.hp*hpScale()*DF.hp;
-  const e=Object.assign({type,x,y,hp,max:hp,t:0,flash:0,score:d.score,fireT:rnd(0.6,1.6),dead:false,dying:false,isBoss:!!d.boss,pal:ART[type].pal||PAL_EN,
+  const e=Object.assign({hr:Math.random(),type,x,y,hp,max:hp,t:0,flash:0,score:d.score,fireT:rnd(0.6,1.6),dead:false,dying:false,isBoss:!!d.boss,pal:ART[type].pal||PAL_EN,
     spr:s,rot:0,hw:ART[type].dw*0.42,hh:ART[type].dh*0.42},o);
   if(G.stage===5&&G.state==='play')flSkin(e);enemies.push(e);if(G.state==='play'&&!G.introGate&&G.seen)tagNew([e]);return e;
 }
-let DF={fire:1,spd:1,hp:1,spawn:1};   // current difficulty multipliers
+let DF={fire:1,spd:1,hp:1,spawn:1};
+P=nativeRng(P);explode=nativeRng(explode);sx=nativeRng(sx);samp=nativeRng(samp);tone=nativeRng(tone);noiseHit=nativeRng(noiseHit);say=nativeRng(say);rumble=nativeRng(rumble);   // current difficulty multipliers
 // Defender-inspired tuning (see source/defender_patch.py)
 const DFN={aimJit:16,leadChance:0.5,lead:0.8,shotCap:24,dodgeSpd:125,dodgeT:0.3,dodgeCD:[1.1,1.9],huntMax1:2,huntMax:3,huntChance:0.6,huntLife:9};
 function bossFiring(){return !!(G.boss||G.mini||(CUR_E&&(CUR_E.isBoss||CUR_E.mb)));}
@@ -533,7 +544,7 @@ function dodgeLine(e,dt,d){
 }
 // a drone that gets past you turns into a hunter (Defender's lander becoming a mutant)
 function canHunt(e){
-  if(e.huntRoll===undefined)e.huntRoll=Math.random()<DFN.huntChance;
+  if(e.huntRoll===undefined)e.huntRoll=(e.hr!==undefined?e.hr:Math.random())<DFN.huntChance;
   if(e.carry||!e.huntRoll||G.state!=='play'||G.boss||G.pre||G.mini||!pl.alive||e.tfollow||tunAt(e.x+G.scroll))return false;
   let n=0;for(const q of enemies)if(q.hunter&&!q.dead&&!q.dying)n++;
   return n<(G.stage<=1?DFN.huntMax1:DFN.huntMax);
@@ -600,7 +611,8 @@ function introKey(e){if(G.stage===5&&FL_SK[e.type])return FL_SK[e.type];return e
 function isBusy(e){return !e.dead&&!e.dying&&!e.isBoss&&e.x>-10&&e.x<W+10&&e.fx!=='rock'&&e.fx!=='crys'&&!e.type.startsWith('hz_');}
 function tagNew(list){const done={};for(const e of list){const k=introKey(e);if(INTRO[k]&&!done[k]&&!G.seen[k]){done[k]=1;G.seen[k]=1;}}
   return Object.keys(done).length>0;}
-function introWave(){const n0=enemies.length;G.introGate=true;try{spawnWave();}finally{G.introGate=false;}
+function introWave(){return seeded('w',introWave_);}
+function introWave_(){const n0=enemies.length;G.introGate=true;try{spawnWave();}finally{G.introGate=false;}
   const nw=enemies.slice(n0),fresh=nw.some(e=>INTRO[introKey(e)]&&!G.seen[introKey(e)]);if(!fresh)return;
   const busy=enemies.slice(0,n0).filter(isBusy).length;
   if(busy>1){enemies.length=n0;G.parked={list:nw,t:0,stage:G.stage};return;}   // too crowded: hold the newcomers back until things calm down
@@ -684,7 +696,7 @@ function s1Seek(t){s1Reset();G.stageT=t-S1.DROP;G.miniDone=true;if(A.ctx)stopMus
 function s1Waves(dt,T){
   if(T<S1.DROP+S1.CALM)return;   // a calm moment after the jump
   {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&e.fx!=='rock'&&e.fx!=='crys');G.emptyT=busy?0:(G.emptyT||0)+dt;
-   if(G.emptyT>0.5){G.emptyT=0;G.spawnT=0;}}
+   if(EARLY_WAVES&&G.emptyT>0.5){G.emptyT=0;G.spawnT=0;}}
   if(introTick(dt))return;
   G.spawnT-=dt;if(G.spawnT<=0){introWave();G.spawnT*=DF.spawn*(T>=S1.FULL?0.8:1);}}
 function s1Tick(dt){
@@ -695,7 +707,7 @@ function s1Tick(dt){
   hazardTick(dt);
   if(T<S1.GATE){
     if(!G.miniDone&&T>=S1.WARDEN)spawnMini();
-    if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){G.escT=rnd(4,5.5);const f=faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});}return true;}
+    if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){inStream('esc',()=>{G.escT=rnd(4,5.5);const f=faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});});}return true;}
     s1Waves(dt,T);return true;}
   if(T<S1.RING){if(G.mini&&!G.mini.dead&&!G.mini.leaving)G.mini.leaving=true;gateTick(dt,T);return true;}
   if(T<S1.FULL){if(!RING.e&&!G.s1Ring){G.s1Ring=true;ringSpawn();}return true;}
@@ -712,7 +724,8 @@ const GATE={on:false,list:[],i:0,nextX:0,swT:0},GATE_W=56,GATE_HW=GATE_W*0.36;
 const GATE_PLAN=[135,135,112,158,96,172,124,150,92,138,176,118];   // gap centres: open first, then weaving up and down
 function gateReset(){GATE.on=false;GATE.list.length=0;GATE.i=0;}
 function gateGap(){return {easy:104,medium:86,hard:74}[OPT.diff]||86;}
-function gateTick(dt,T){
+function gateTick(dt,T){return inStream('gate',()=>gateTick_(dt,T));}
+function gateTick_(dt,T){
   if(!GATE.on){GATE.on=true;GATE.i=0;GATE.nextX=G.scroll+W+40;GATE.swT=1.6;}
   while(GATE.nextX<G.scroll+W+60&&T<S1.RING-7&&GATE.i<GATE_PLAN.length){const c=GATE_PLAN[GATE.i],gap=gateGap()*(GATE.i<2?1.3:1);
     GATE.list.push({X:GATE.nextX,c,top:c-gap/2,bot:c+gap/2});GATE.i++;GATE.nextX+=150;}
@@ -822,12 +835,12 @@ function sxSeek(cfg,t){sxReset();G.stageT=t-cfg.DROP;G.miniDone=true;if(A.ctx)st
 function sxCur(){return G.stage===3&&MUSIC.stage3h?HV:G.stage===4&&MUSIC.stage4d?DN:null;}
 function sxWaves(dt,T,cfg,k){
   if(T<cfg.DROP+3)return;
-  {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&e.fx!=='rock'&&e.fx!=='crys'&&e.type!=='hpod');G.emptyT=busy?0:(G.emptyT||0)+dt;if(G.emptyT>0.6){G.emptyT=0;G.spawnT=0;}}
+  {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&e.fx!=='rock'&&e.fx!=='crys'&&e.type!=='hpod');G.emptyT=busy?0:(G.emptyT||0)+dt;if(EARLY_WAVES&&G.emptyT>0.6){G.emptyT=0;G.spawnT=0;}}
   if(introTick(dt))return;
   G.spawnT-=dt;if(G.spawnT<=0){introWave();G.spawnT*=DF.spawn*(k||1);}}
 function sxMini(dt,T,at){
   if(!G.miniDone&&T>=at)spawnMini();
-  if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){G.escT=rnd(4,5.5);const f=faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});}return true;}
+  if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){inStream('esc',()=>{G.escT=rnd(4,5.5);const f=faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});});}return true;}
   return false;}
 // "Attack here" pointer, shown the first time a one-weak-spot enemy appears in each game
 function drawTip(x,y,t){if(t<=0)return;const bob=Math.sin(G.t*8)*2,above=y>60,ty=above?y-26+bob:y+26-bob;ctx.save();ctx.globalAlpha=Math.min(1,t);
@@ -849,7 +862,8 @@ function hvDepth(X,bottom){const w=HV.walls;if(!w||X<w.X0||X>w.X1)return 0;
   return (HV_PROF[i]/(HV_PROF.length*0.48125))*HV_WH*ramp;}   // depth in screen px
 function hvTop(x){return hvDepth(x+G.scroll,false);}
 function hvBot(x){const d=hvDepth(x+G.scroll,true);return d?H-d:H+50;}
-function hvWallsStart(T){const X0=G.scroll+W+20,X1=X0+60*(HV.BREAK-T)-W*0.6;HV.walls={X0,X1,pods:[]};let top=true;
+function hvWallsStart(T){return seeded('walls',()=>hvWallsStart_(T));}
+function hvWallsStart_(T){const X0=G.scroll+W+20,X1=X0+60*(HV.BREAK-T)-W*0.6;HV.walls={X0,X1,pods:[]};let top=true;
   for(let X=X0+160;X<X1-60;X+=rnd(150,210)){const p=E('hpod',X-G.scroll,0,{X,top,prot:true,open:false,pt:rnd(1.2,3),hw:16,hh:9});HV.walls.pods.push(p);top=!top;}}
 function hvPodUpdate(e,dt){const x=e.X-G.scroll;e.x=x;const d=hvDepth(e.X,!e.top);e.y=e.top?d-5:H-d+5;if(x<-40){e.dead=true;return;}
   e.flip=e.top;if(x>W-10||G.state!=='play')return;e.pt-=dt*DF.fire;
@@ -886,7 +900,8 @@ function serpSpawn(){const first=!G.seen.serpTip;G.seen.serpTip=1;
 function serpPos(e,i){let need=(i+1)*SERP_SP,acc=0,p=e.hist[0];for(let k=1;k<e.hist.length;k++){const q=e.hist[k],d=Math.hypot(q.x-p.x,q.y-p.y);if(acc+d>=need){const f=(need-acc)/(d||1);return [p.x+(q.x-p.x)*f,p.y+(q.y-p.y)*f,Math.atan2(p.y-q.y,p.x-q.x)];}acc+=d;p=q;}return [p.x,p.y,0];}
 // steering: the head always swims forward and turns towards a target at a limited rate, so its path is one smooth curve;
 // a gentle slither is added to the direction of travel and ripples down the body because the body follows the path
-function serpPick(e){const near=pl.alive&&Math.random()<0.4;
+function serpPick(e){return inStream('serp',()=>serpPick_(e));}
+function serpPick_(e){const near=pl.alive&&Math.random()<0.4;
   e.wx=near?clamp(pl.x+rnd(40,120),W*0.3,W-50):rnd(W*0.35,W-50);e.wy=near?clamp(pl.y+rnd(-30,30),45,H-45):rnd(45,H-45);e.wT=rnd(2.5,4);}
 function serpUpdate(e,dt){const t=(e.t0+=dt),leave=e.st==='out';
   if(e.st==='in'&&e.nx<W-40)e.st='swim';
@@ -1019,7 +1034,7 @@ function dnTick(dt){const T=sxClock(DN);
   if(!DN.bossMus&&T>=DN.HIT-0.03){DN.bossMus=true;playMusic(bossTrack(),BOSS_DROP,0.05,0.3);}
   if(BS.stop&&!BS.fight){BS.fight=true;const b=BS.bridge;if(b&&!b.dead){b.prot=false;G.boss=b;G.bossDropT=8;bossRoar(b);}if(!DN.bossMus){DN.bossMus=true;playMusic(bossTrack(),BOSS_DROP,0.05,0.3);}}
   hazardTick(dt);if(!DN.haz&&T>=DN.HULL+30&&!BS.stop){DN.haz=true;startHazard();}
-  {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&!e.hidden&&e.fx!=='rock'&&e.fx!=='crys');G.emptyT=busy?0:(G.emptyT||0)+dt;if(G.emptyT>0.5){G.emptyT=0;BS.escT=0;}}
+  {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&!e.hidden&&e.fx!=='rock'&&e.fx!=='crys');G.emptyT=busy?0:(G.emptyT||0)+dt;if(EARLY_WAVES&&G.emptyT>0.5){G.emptyT=0;BS.escT=0;}}
   if(!BS.stop&&G.state==='play'){BS.escT-=dt;if(BS.escT<=0){BS.escT=rnd(2.8,3.8)*DF.spawn;
     const onHull=hullTopSX(W+20-BS.x0)<H;
     if(onHull&&Math.random()<0.4){for(let i=0;i<2;i++)E('walker1',W+20+i*40,H-40,{walk:rnd(12,20),anim:rnd(0,4),st:'walk',frame:0,fireT:rnd(0.8,2)});}
@@ -1029,7 +1044,8 @@ function dnTick(dt){const T=sxClock(DN);
    times are on each stage's own clock (music position for stages 1, 3, 4; stage time for 2 and 5) */
 const CARRY={1:[[56,'W'],[76,'S'],[120,'W'],[146,'W']],2:[[16,'W'],[32,'D'],[48,'W'],[60,'W']],3:[[45,'W'],[75,'R'],[110,'W'],[135,'W']],4:[[22,'W'],[60,'B'],[100,'W'],[130,'W']],5:[[14,'W'],[34,'S'],[50,'W'],[58,'W']]};
 function carryClock(){if(G.stage===1&&s1On())return s1Clock();if(G.stage===3&&MUSIC.stage3h)return sxClock(HV);if(G.stage===4&&MUSIC.stage4d)return sxClock(DN);return G.stageT;}
-function carryTick(){if(G.state!=='play'||G.pre||G.boss||G.clearT>0||G.ending)return;const L=CARRY[G.stage];if(!L)return;G.cDone=G.cDone||{};const T=carryClock();
+function carryTick(){return inStream('carry',carryTick_);}
+function carryTick_(){if(G.state!=='play'||G.pre||G.boss||G.clearT>0||G.ending)return;const L=CARRY[G.stage];if(!L)return;G.cDone=G.cDone||{};const T=carryClock();
   for(let i=0;i<L.length;i++){if(G.cDone[i]||T<L[i][0])continue;G.cDone[i]=1;let k=L[i][1];
     if(k==='S'&&G.speed>=4)k='B';if(k==='D'&&DR.on)k='B';if(k==='R'&&G.rear)k='B';
     const y=rnd(55,H-85),e=E('drone',W+30,y,{baseY:y,amp:14,freq:1.6,phase:0,spd:42,carry:k});e.hp=e.max=10*hpScale();e.score=1000;e.hw=16;e.hh=8;}}
@@ -1081,12 +1097,12 @@ function director(dt){
     playMusic(bossTrack(),0,1.2,2.5);return;
   }
   if(!G.miniDone&&G.stageT>=12&&G.stage!==4&&!TUN.on)spawnMini();
-  if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){G.escT=rnd(4,5.5);const f=G.stage===5?0:faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});}return;}
+  if(G.mini&&!G.mini.dead){G.escT=(G.escT===undefined?3:G.escT)-dt;if(G.escT<=0){inStream('esc',()=>{G.escT=rnd(4,5.5);const f=G.stage===5?0:faction(),y=rnd(50,H-90);for(let i=0;i<5;i++)fxE('snake',f,'small',1.5,120,W+8+i*16,y,{baseY:y,ph:-i*0.45,fac:f});});}return;}
   // hazards, the rear-wave warning, and never leaving the screen empty for long
   hazardTick(dt);if(G.rearWarn>0)G.rearWarn-=dt;
-  G.hazT=(G.hazT===undefined?10:G.hazT)-dt;if(G.hazT<=0&&!G.haz&&!TUN.on&&!(G.stage===5&&FL.act>1)){G.hazT=rnd(13,19);startHazard();}
+  G.hazT=(G.hazT===undefined?10:G.hazT)-dt;if(G.hazT<=0&&!G.haz&&!TUN.on&&!(G.stage===5&&FL.act>1)){G.hazT=inStream('hzgap',()=>rnd(13,19));startHazard();}
   {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&e.fx!=='rock'&&e.fx!=='crys');G.emptyT=busy?0:(G.emptyT||0)+dt;
-   if(G.emptyT>0.5){G.emptyT=0;if(TUN.on)TUN.spT=0;else G.spawnT=0;}}
+   if(EARLY_WAVES&&G.emptyT>0.5){G.emptyT=0;if(TUN.on)TUN.spT=0;else G.spawnT=0;}}
   if(!TUN.done&&G.stageT>=22&&G.stage!==5){if(G.stageT<BOSS_AT-25)tunStart();else TUN.done=true;}   // never start a tunnel close to the boss
   if(TUN.on&&G.scroll+W>TUN.X0-60&&G.scroll+W<TUN.X1+30)return;   // tunnel waves only until the exit comes into view
   if(TUN.on&&!TUN.exitSeen&&G.scroll+W>=TUN.X1+30){TUN.exitSeen=true;G.spawnT=Math.min(G.spawnT,0.3);}   // exit in view: normal waves straight away
@@ -1804,7 +1820,7 @@ function update(dt){
   updateEnemies(dt);updateBullets(dt);updatePups(dt);collide();
   if(G.chainT>0){G.chainT-=dt;if(G.chainT<=0){G.chain=0;G.mult=1;}}
 }
-function newGame(noMusic){
+function newGame(noMusic){RS.key=null;
   tunReset();BS.on=false;BS.done=false;
   Object.assign(G,{state:'play',paused:false,clearing:false,hp:HP_MAX,hurtT:99,hurtFlash:0,miniDone:false,mini:null,rear:false,haz:null,hazT:undefined,rearWarn:0,emptyT:0,ending:false,victory:false,practice:false,practiceWin:false,bossDropT:undefined,nextLife:100000,named:false,cheated:false,score:0,lives:3,bombs:3,power:1,speed:0,weapon:'pulse',stash:null,wflash:0,chain:0,chainT:0,mult:1,stage:1,stageT:0,spawnT:1.5,pre:false,preT:0,preClock:0,warned:false,boss:null,clearT:0,overT:0,newBest:false});
   enemies.length=0;eb.length=0;pb.length=0;pups.length=0;timers.length=0;popups.length=0;FRAGS.length=0;G.seen={};G.parked=null;G.introGate=false;
@@ -2851,7 +2867,8 @@ const WALLTEX=[0,1,2].map(th=>mkTile(128,128,(g,w,h)=>{seed=200+th*31;
       g.strokeStyle='rgba(157,255,61,.15)';g.stroke();}}
 }));
 let wallPat=[null,null,null];
-function tunStart(){
+function tunStart(){return seeded('tun',tunStart_);}
+function tunStart_(){
   TUN.on=true;TUN.done=true;TUN.exitSeen=false;TUN.X0=G.scroll+W+30;TUN.X1=TUN.X0+TUN_LEN;TUN.ph=rnd(0,TAU);
   TUN.gap={easy:100,medium:80,hard:68}[OPT.diff]||80;TUN.spT=2.5;
   banner('Tunnel ahead',2.6);
@@ -2878,7 +2895,8 @@ function keepInGap(){if(G.state!=='play'||!(TUN.on||HV.walls))return;
     if(e.st==='walk'||e.ceilW||ty.startsWith('walker')||ty.startsWith('bs_')||ty.startsWith('mb_')||ty==='hpod'||ty==='serpg'||ty==='ring')continue;   // wall-walkers, wall pods and set pieces stay put
     fit(e,Math.min(e.hh||8,14)+3+(e.amp||0));}
   for(const p of pups)if(p.x>-20&&p.x<W+20)fit(p,8);}
-function tunnelUpdate(dt){
+function tunnelUpdate(dt){return inStream('tunw',()=>tunnelUpdate_(dt));}
+function tunnelUpdate_(dt){
   if(!TUN.on)return;
   if(G.scroll>TUN.X1+W){TUN.on=false;return;}
   // tunnel-only waves: walkers on the floor and ceiling, small flyers threading the gap
@@ -2982,8 +3000,8 @@ function bsDirector(dt){
   if(!BS.warned&&trem<=WARN_AT){BS.warned=true;banner('Warning',3);const v=say('warning',3);if(!samp('alarm',v?0.3:0.6,1))sfx.alarm();}
   if(BS.stop&&!BS.fight){BS.fight=true;const b=BS.bridge;if(b&&!b.dead){b.prot=false;G.boss=b;G.bossDropT=8;bossRoar(b);}}
   // escorts while flying over the hull
-  hazardTick(dt);G.hazT=(G.hazT===undefined?9:G.hazT)-dt;if(G.hazT<=0&&!G.haz&&!BS.stop){G.hazT=rnd(11,16);startHazard();}
-  {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&!e.hidden&&e.fx!=='rock'&&e.fx!=='crys');G.emptyT=busy?0:(G.emptyT||0)+dt;if(G.emptyT>0.5){G.emptyT=0;BS.escT=0;}}
+  hazardTick(dt);G.hazT=(G.hazT===undefined?9:G.hazT)-dt;if(G.hazT<=0&&!G.haz&&!BS.stop){G.hazT=inStream('hzgap',()=>rnd(11,16));startHazard();}
+  {const busy=enemies.some(e=>!e.dead&&!e.dying&&e.x>-10&&e.x<W+10&&!e.hidden&&e.fx!=='rock'&&e.fx!=='crys');G.emptyT=busy?0:(G.emptyT||0)+dt;if(EARLY_WAVES&&G.emptyT>0.5){G.emptyT=0;BS.escT=0;}}
   if(!BS.stop&&G.state==='play'){BS.escT-=dt;if(BS.escT<=0){BS.escT=rnd(2.6,3.6)*DF.spawn;
     const onHull=hullTopSX(W+20-x0)<H;
     if(onHull&&Math.random()<0.45){for(let i=0;i<2;i++)E('walker1',W+20+i*40,H-40,{walk:rnd(12,20),anim:rnd(0,4),st:'walk',frame:0,fireT:rnd(0.8,2)});}
@@ -3477,12 +3495,14 @@ const HZ_ROCK=FGS[0][0],HZ_CRYS=mkTile(16,40,g=>{crystal(g,8,0,12,38,1,'rgba(90,
 ART.hz_rock={dw:22,dh:16,cr:0,core:[0,0],gc:C.ember,pal:[C.white,C.ember,'#6a4a3a'],n:HZ_ROCK,w:whiteOf(HZ_ROCK)};
 ART.hz_crys={dw:10,dh:24,cr:0,core:[0,0],gc:'#ff3dd5',pal:[C.white,'#ff3dd5','#c77dff'],n:HZ_CRYS,w:whiteOf(HZ_CRYS)};
 Object.assign(DEF,{hz_rock:{hp:3,score:50,pw:1,drop:0.03},hz_crys:{hp:2,score:40,pw:0.8,drop:0}});
-function startHazard(){
+function startHazard(){return seeded('hz',startHazard_);}
+function startHazard_(){
   const th=G.stage===4?3:G.stage===5?4:faction();
   const kind=th===1?'shards':th===2?'acid':(th===3||th===4)?'debris':'rocks';
   G.haz={kind,t:0,n:0};showToast({rocks:'Meteor shower!',shards:'Falling crystals!',acid:'Acid rain!',debris:G.stage===5?'Flying scrap!':'Hull debris!'}[kind]);
 }
-function hazardTick(dt){
+function hazardTick(dt){return inStream('hzt',()=>hazardTick_(dt));}
+function hazardTick_(dt){
   if(!G.haz)return;const h=G.haz;h.t+=dt;const d=diff();
   const every={rocks:0.3,shards:0.35,acid:0.2,debris:0.28}[h.kind],total={rocks:3,shards:3,acid:3,debris:3.5}[h.kind];
   while(h.n*every<h.t&&h.t<total){h.n++;
@@ -4307,7 +4327,7 @@ function finalFrame(dt){
   if(G.pre&&FL.act<3){FL.opened=true;flAct3();}             // the boss is coming: always fight it in the foundry
   const dx=FL.lastScroll===undefined?0:G.scroll-FL.lastScroll;FL.lastScroll=G.scroll;
   // stamping presses in the assembly hall: warn, slam, hold, lift, repeat while they pass
-  if(FL.act===2&&!G.pre&&!G.boss&&G.state==='play'){FL.pressT-=dt;if(FL.pressT<=0){FL.pressT=rnd(4.2,6);FL.presses.push({x:W+40,st:0,t:0,yb:PR_UP});}}
+  if(FL.act===2&&!G.pre&&!G.boss&&G.state==='play'){FL.pressT-=dt;if(FL.pressT<=0){FL.pressT=inStream('press',()=>rnd(4.2,6));FL.presses.push({x:W+40,st:0,t:0,yb:PR_UP});}}
   for(const p of FL.presses){p.x-=dx;p.t+=dt;
     if(p.st===0){if(p.x<W-70){p.st=1;p.t=0;}}
     else if(p.st===1){p.yb=PR_UP+Math.sin(p.t*60)*1.2;if(p.t>=0.85){p.st=2;p.t=0;}else if(p.t<dt*1.5){if(!sx('press-warning',1,1)){tone('square',880,880,0.07,0.05);tone('square',880,880,0.07,0.05,0.25);}}}
@@ -4317,8 +4337,8 @@ function finalFrame(dt){
     if(p.st>=1&&pl.alive&&Math.abs(pl.x-p.x)<PR_W*0.42+6&&pl.y-5<p.yb)playerDamage(p.st===2||p.st===3?45:25);}
   FL.presses=FL.presses.filter(p=>p.x>-80);
   // molten metal dripping from the ladles overhead
-  if(FL.act===3&&!G.boss&&!G.pre&&G.state==='play'){FL.dripT-=dt;if(FL.dripT<=0){FL.dripT=rnd(1.5,2.3);
-    for(let i=0;i<3;i++){const x=rnd(40,W-20);later(i*0.2,()=>{shootE(x,-4,rnd(-8,8),40,'#ff9a3d',230);P(0,x,2,0,0,0.3,6,2,'#ffb35a');});}}}
+  if(FL.act===3&&!G.boss&&!G.pre&&G.state==='play'){FL.dripT-=dt;if(FL.dripT<=0){FL.dripT=inStream('drip',()=>rnd(1.5,2.3));
+    for(let i=0;i<3;i++){const x=inStream('drip',()=>rnd(40,W-20));later(i*0.2,()=>{shootE(x,-4,rnd(-8,8),40,'#ff9a3d',230);P(0,x,2,0,0,0.3,6,2,'#ffb35a');});}}}
 }
 
 const TMIN=Math.min(TM.launcher.x,TM.laser.x,TM.hatch.x,TM.torso.x,TM.head.x,TM.legF.x);
