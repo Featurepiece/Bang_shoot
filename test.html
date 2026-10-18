@@ -492,6 +492,7 @@ function updateFx(dt){
   if(pl.trail){for(const g of pl.trail)g.life-=dt;while(pl.trail.length&&pl.trail[0].life<=0)pl.trail.shift();}
   if(G.state!=='intro')updateWorld2(dt);
   if(G.state==='play'||G.state==='over')tunnelUpdate(dt);
+  keepInGap();
   if(G.state==='play'||G.state==='over'){gateUpdate();ringDebrisUpdate(dt);}
   for(let i=RINGS.length-1;i>=0;i--){RINGS[i].r+=340*dt;if(RINGS[i].r>620)RINGS.splice(i,1);}
   trauma=Math.max(0,trauma-dt*1.6);
@@ -1007,7 +1008,7 @@ function dnTick(dt){const T=sxClock(DN);
 
 /* ---------- pickup carriers: the set moments where power-ups come from ----------
    times are on each stage's own clock (music position for stages 1, 3, 4; stage time for 2 and 5) */
-const CARRY={1:[[56,'W'],[76,'S'],[120,'W']],2:[[16,'W'],[32,'D'],[48,'W']],3:[[45,'W'],[75,'R'],[135,'W']],4:[[22,'W'],[60,'B'],[100,'W']],5:[[14,'W'],[34,'S'],[50,'W']]};
+const CARRY={1:[[56,'W'],[76,'S'],[120,'W'],[146,'W']],2:[[16,'W'],[32,'D'],[48,'W'],[60,'W']],3:[[45,'W'],[75,'R'],[110,'W'],[135,'W']],4:[[22,'W'],[60,'B'],[100,'W'],[130,'W']],5:[[14,'W'],[34,'S'],[50,'W'],[58,'W']]};
 function carryClock(){if(G.stage===1&&s1On())return s1Clock();if(G.stage===3&&MUSIC.stage3h)return sxClock(HV);if(G.stage===4&&MUSIC.stage4d)return sxClock(DN);return G.stageT;}
 function carryTick(){if(G.state!=='play'||G.pre||G.boss||G.clearT>0||G.ending)return;const L=CARRY[G.stage];if(!L)return;G.cDone=G.cDone||{};const T=carryClock();
   for(let i=0;i<L.length;i++){if(G.cDone[i]||T<L[i][0])continue;G.cDone[i]=1;let k=L[i][1];
@@ -2832,6 +2833,18 @@ function tunAt(X){
   return {c,ceil:-30+(c-g-n+30)*e,floor:groundAt(X)+(c+g+n-groundAt(X))*e,r:e};
 }
 function groundY(x){if(BS.on){const h=hullTop(x);if(h<H)return h;}const t=tunAt(x+G.scroll);return t?Math.min(t.floor,groundAt(x+G.scroll)):groundAt(x+G.scroll);}
+// the open space at screen x: between the tunnel walls and/or the hive walls (null when there are none)
+function gapAt(x){let top=-1e9,bot=1e9;const t=TUN.on?tunAt(x+G.scroll):null;
+  if(t&&t.r>0.25){top=t.ceil;bot=t.floor;}
+  if(HV.walls){const a=hvTop(x),b=hvBot(x);if(a>0)top=Math.max(top,a);if(b<H)bot=Math.min(bot,b);}
+  return top<-1e8&&bot>1e8?null:[top,bot];}
+function keepInGap(){if(G.state!=='play'||!(TUN.on||HV.walls))return;
+  const fit=(o,m)=>{const g=gapAt(o.x);if(!g)return;const lo=g[0]+m,hi=g[1]-m,ny=lo>hi?(g[0]+g[1])/2:clamp(o.y,lo,hi);
+    if(ny!==o.y){const d=ny-o.y;o.y=ny;if(o.baseY!==undefined)o.baseY+=d;}};
+  for(const e of enemies){if(e.dead||e.dying||e.isBoss||e.x<-30||e.x>W+40)continue;const ty=e.type;
+    if(e.st==='walk'||e.ceilW||ty.startsWith('walker')||ty.startsWith('bs_')||ty.startsWith('mb_')||ty==='hpod'||ty==='serpg'||ty==='ring')continue;   // wall-walkers, wall pods and set pieces stay put
+    fit(e,Math.min(e.hh||8,14)+3+(e.amp||0));}
+  for(const p of pups)if(p.x>-20&&p.x<W+20)fit(p,8);}
 function tunnelUpdate(dt){
   if(!TUN.on)return;
   if(G.scroll>TUN.X1+W){TUN.on=false;return;}
