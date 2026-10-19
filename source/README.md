@@ -252,3 +252,8 @@ New originals go in the matching folder, named after what they are, with a line 
 
 ## Giant serpent head frames (stage 3)
 The mouth-glowing frame (the spit warning) was drawn about 1% smaller and a few pixels off from `Giant serpent - head.jpg`. To line it up: scale by 1/0.99, then move about 1 px left and 5 px down (measured at full size). The bite is done in code (a lunge and a flash); Gemini's claws-closed attempts kept adding an extra spike, so that frame is in `art/unused/`. After that the back of the head matches to within a few levels of brightness.
+
+## Version number
+`GAME_VERSION` near the top of `test.html` is shown small in the bottom-right of the Options screen.
+Started at 2.1 (19 Oct 2026). **Every update pushed to the test page raises it by 0.2** (2.1, 2.3, 2.5 ...),
+so Steven can tell which build he is playing. Mention the new number when reporting a change.

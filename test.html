@@ -30,6 +30,7 @@ canvas.px{image-rendering:crisp-edges;image-rendering:pixelated}
 (()=>{
 'use strict';
 const W=480,H=270,SP=2,TAU=Math.PI*2,BOSS_AT=60;
+const GAME_VERSION='2.1';   // shown in Options; goes up by 0.2 with every update pushed to the test page
 const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[(Math.random()*a.length)|0];
 // ---- fixed stages: seeded random numbers for everything that decides what a stage throws at you ----
 const NATIVE_RANDOM=Math.random,EARLY_WAVES=false;   // true: an empty screen calls the next wave early (makes stages vary with kill speed)
@@ -2480,6 +2481,7 @@ function drawOptions(){
     if(typeof v==='number'){for(let k=0;k<10;k++){ctx.fillStyle=k<v?(on?C.gold:C.ember):'rgba(255,255,255,.15)';ctx.fillRect(262+k*13,y-4,10,8);}}
     else if(v!==null){ctx.textAlign='right';txt(v,392,y,on?C.gold:C.white);}});
   ctx.globalAlpha=0.6;centerText(touchUI?'Tap left/right side of a row to change it':'Left/right to change',204,8,'#d9c8ff');ctx.globalAlpha=1;
+  ctx.font=F(6);ctx.textAlign='right';ctx.textBaseline='middle';ctx.globalAlpha=0.45;txt('Ver. '+GAME_VERSION,404,219,'#b9a8e8');ctx.globalAlpha=1;ctx.textAlign='left';
 }
 function drawJukebox(){
   heading(MENU.sync?'Lyric sync':'Jukebox',16);
