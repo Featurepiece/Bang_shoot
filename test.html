@@ -30,7 +30,7 @@ canvas.px{image-rendering:crisp-edges;image-rendering:pixelated}
 (()=>{
 'use strict';
 const W=480,H=270,SP=2,TAU=Math.PI*2,BOSS_AT=60;
-const GAME_VERSION='2.9';   // shown in Options; goes up by 0.2 with every update pushed to the test page
+const GAME_VERSION='3.1';   // shown in Options; goes up by 0.2 with every update pushed to the test page
 const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[(Math.random()*a.length)|0];
 // ---- fixed stages: seeded random numbers for everything that decides what a stage throws at you ----
 const NATIVE_RANDOM=Math.random,EARLY_WAVES=false;   // true: an empty screen calls the next wave early (makes stages vary with kill speed)
@@ -3851,7 +3851,7 @@ function drawBG(){
   if(th===0){if(bgw<0.99)tileAt(BGT[0].city,0.35,0,(0.9+0.1*bp)*(1-bgw));drawRidge(FAR,0.35,'#2a0d40',BEAT.col,0.45+0.55*bp);drawRidge(NEAR,1,'#10061f','#3dfcff',0.25+0.6*bp);}
   else if(th===1){tileAt(BGT[1].spires,0.35,0);drawRidge(FAR,0.35,'#1c0a34','#c9a4ff',0.25+0.4*bp);drawRidge(NEAR,1,'#12061f','#ff3dd5',0.3+0.6*bp);tileAt(BGT[1].ceil,1,0);}   // the far ridge the spires grow out of
   else if(th===4){if(!(G.stage===5&&FL.bg!=='factory'))drawRidge(NEAR,1,'#120c0a','#ff7a3d',0.3+0.6*bp);if(!(G.stage===5&&FL.bg==='foundry'))drawGirders();}
-  else if(th===2){tileAt(BGT[2].ribs,0.35,0);drawRidge(NEAR,1,'#051208','#9dff3d',0.3+0.6*bp);tileAt(BGT[2].ceil,1,0);}
+  else if(th===2){tileAt(BGT[2].ribs,0.35,0);drawRidge(FAR,0.35,'#082210','#9dff3d',0.2+0.35*bp);drawRidge(NEAR,1,'#051208','#9dff3d',0.3+0.6*bp);tileAt(BGT[2].ceil,1,0);}
 }
 function drawSprite(s,x,y,white){const img=white?s.w:s.n;ctx.drawImage(img,Math.round(x-img.width),Math.round(y-img.height),img.width*SP,img.height*SP);}
 function drawParticlesOver(){
