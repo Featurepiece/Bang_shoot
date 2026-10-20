@@ -30,7 +30,7 @@ canvas.px{image-rendering:crisp-edges;image-rendering:pixelated}
 (()=>{
 'use strict';
 const W=480,H=270,SP=2,TAU=Math.PI*2,BOSS_AT=60;
-const GAME_VERSION='3.5';   // shown in Options; goes up by 0.2 with every update pushed to the test page
+const GAME_VERSION='3.7';   // shown in Options; goes up by 0.2 with every update pushed to the test page
 const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[(Math.random()*a.length)|0];
 // ---- fixed stages: seeded random numbers for everything that decides what a stage throws at you ----
 const NATIVE_RANDOM=Math.random,EARLY_WAVES=false;   // true: an empty screen calls the next wave early (makes stages vary with kill speed)
@@ -1057,7 +1057,8 @@ GUNI.base.src='data:image/webp;base64,UklGRrYrAABXRUJQVlA4WAoAAAAQAAAAKwEAcwAAQU
 // sizes in game pixels; sock = barrel socket on the base picture; coil = glowing coils along the barrel (from the muzzle end);
 // piv = how far along the barrel (from the muzzle) it pivots; the gun sits 100 px in front of the bridge, two cover blocks further forward
 const GUN={dw:112,dh:112*116/300,sock:[0.297,0.397],bw:70,bh:70*45/300,coil:[0.377,0.6],piv:0.9,get SX(){return BRIDGE_SX-100;},get BLOCKS(){return [BRIDGE_SX-300,BRIDGE_SX-225];},bkW:28,bkH:27,lock:0.5};
-const ESC={hp:180,acc:7.3};   // escape: damage needed to break the ship apart; how fast it pulls away (px/s per second)
+// escape: damage needed to break the ship apart; the surge (top speed, acceleration, braking) and the creep once the stern reaches you
+const ESC={hp:260,bolt:650,surge:420,brake:700,creep:10,creepX:150,acc:5,flame:150};
 ART.bs_gun={dw:GUN.dw,dh:GUN.dh,cr:8,core:[0,-6],gc:'#ff7a3d',pal:[C.white,'#ff7a3d',C.ember]};
 GUNI.base.onload=()=>{const c=toCanvas(GUNI.base);ART.bs_gun.n=c;ART.bs_gun.w=whiteOf(c);};
 DEF.bs_gun={hp:300,score:60000,boss:true};
@@ -1143,52 +1144,71 @@ function drawBlocks(){if(!BS.on||!DN.blocks||!GUNI.block.complete)return;ctx.sav
     if(b.hp<2&&Math.random()<0.15*Q)P(2,x+rnd(-8,8),y+2,-8,-22,1,2,6,null,0.4);}
   ctx.restore();}
 
-/* ---------- the escape: when the gun dies the Dreadnought fires its engines and runs. Shoot the bridge to break it apart ---------- */
-function dnEscapeStart(g){DN.gun=null;G.boss=null;DN.esc={t:0,v:0,dmg:0,max:ESC.hp*DF.hp,lv:0,dead:false,end:false,deadT:0,sink:0,sinkV:0,tilt:0};
-  later(0.9,()=>{if(!DN.esc||DN.esc.end)return;banner('The Dreadnought is escaping!',3);if(!samp('alarm',0.5,1))sfx.alarm();rumble(0.8,0.6,1500,true);});
-  later(4,()=>{if(DN.esc&&!DN.esc.end&&!DN.esc.dead)banner('Shoot the bridge!',2.4);});}
+/* ---------- the escape: when the gun dies the Dreadnought bolts to the right. Chase it and hit its engines ---------- */
+function nzYs(){return [0.235,0.51,0.733].map(f=>STERNY+BSM.stern.h*f);}   // the three engine nozzles (screen y) on the stern
+const NZX=28;                                                                   // nozzle exits, from the ship's left end
+function dnEscapeStart(g){DN.gun=null;G.boss=null;
+  DN.esc={t:0,v:0,dmg:0,max:ESC.hp*DF.hp,lv:0,ph:'bolt',dead:false,end:false,deadT:0,sink:0,sinkV:0,tilt:0,nz:[0,1,2].map(()=>({st:'idle',t:0,hit:0})),nzT:1.5};
+  later(0.5,()=>{if(!DN.esc||DN.esc.end)return;banner('The Dreadnought is escaping!',2.6);if(!samp('alarm',0.5,1))sfx.alarm();rumble(0.8,0.6,1500,true);});}
 function dnEscapeTick(dt){const s=DN.esc;s.t+=dt;
-  if(!s.dead){const f=Math.min(1,s.dmg/s.max);s.v=Math.min(170,s.v+ESC.acc*(1-0.45*f)*dt);BS.s+=s.v*dt;   // the more damage, the slower it gets away
-    const b=BS.bridge;
-    if(b&&!b.dead){if(Math.random()<(0.2+1.6*f)*Q)P(2,b.x+rnd(-50,50),b.y+rnd(-60,20),-30,-20,1.4,2,9,null,0.5);
-      if(Math.random()<dt*(0.5+6*f))explode(b.x+rnd(-55,55),b.y+rnd(-65,55),rnd(0.5,1)+f,pick([PAL_EN,PAL_HOT]),true);
-      while(f>=(s.lv+1)*0.25&&s.lv<3){s.lv++;   // a big piece breaks away at every quarter
-        for(let i=0;i<4;i++)later(i*0.1,()=>{if(b.dead)return;const hx=b.x+rnd(-50,50),hy=b.y+rnd(-60,40);explode(hx,hy,2,pick([PAL_EN,PAL_HOT]));spawnFrag(b,hx,hy,true);});
-        shake(0.35);trauma=Math.max(trauma,0.5);popup(b.x-40,b.y-70,['Hull breached','Bridge burning','Breaking up'][s.lv-1],C.hot);}}
+  if(!s.dead){const f=Math.min(1,s.dmg/s.max);
+    if(s.ph==='bolt'){   // it surges right: the hull races past underneath, then brakes as the stern reaches you
+      const d=ESC.creepX-BS.x0,vt=clamp(Math.sqrt(Math.max(0,2*ESC.brake*d)),ESC.creep,ESC.bolt);
+      s.v=s.t<0.6?0:Math.min(vt,s.v+ESC.surge*dt);BS.s-=s.v*dt;trauma=Math.max(trauma,0.08*Math.min(1,s.v/200));
+      if(BS.x0>=ESC.creepX-2&&s.t>1){s.ph='creep';s.v=ESC.creep;banner('Chase it! Hit the engines!',2.6);}}
+    else{s.v+=ESC.acc*(1-0.5*f)*dt;BS.s-=s.v*dt;dnEngineFlares(dt);   // straining to pull away: the more damage, the slower
+      const ex=BS.x0+NZX,ys=nzYs();
+      if(Math.random()<(0.15+1.4*f)*Q)P(2,ex+rnd(0,60),rnd(ys[0]-20,ys[2]),-40,-20,1.4,2,9,null,0.5);
+      if(Math.random()<dt*(0.4+5*f))explode(ex+rnd(0,120),rnd(ys[0]-15,ys[2]),rnd(0.5,1)+f,pick([PAL_EN,PAL_HOT]),true);
+      while(f>=(s.lv+1)*0.25&&s.lv<3){s.lv++;   // a big blast at every quarter
+        const hx=ex+rnd(10,90),hy=rnd(ys[0],ys[2]);for(let i=0;i<4;i++)later(i*0.1,()=>explode(hx+rnd(-20,20),hy+rnd(-15,15),2,pick([PAL_EN,PAL_HOT])));
+        BS.scorch.push({sx:hx-BS.x0,y:hy,r:16});shake(0.35);trauma=Math.max(trauma,0.5);popup(ex+20,ys[0]-30,['Engine hit','Engines burning','Breaking up'][s.lv-1],C.hot);}}
     if(s.dmg>=s.max)dnEscapeDestroyed();
-    else if(BS.x0+SHIPLEN<-30||s.t>32)dnEscapeEnd(false);}
-  else{s.deadT+=dt;BS.s+=s.v*dt*Math.max(0,1-s.deadT/2);
+    else if(BS.x0>W+20||s.t>45)dnEscapeEnd(false);}
+  else{s.deadT+=dt;BS.s-=s.v*dt*Math.max(0,1-s.deadT/2);
     if(s.deadT>1.2){s.sinkV+=55*dt;s.sink+=s.sinkV*dt;s.tilt=Math.min(0.5,s.tilt+dt*0.13);}
-    if(s.deadT<3.5&&Math.random()<dt*10)explode(rnd(0,W),190+s.sink+rnd(-10,40),rnd(1,2.5),pick([PAL_EN,PAL_HOT]),true);
+    if(s.deadT<3.5&&Math.random()<dt*10)explode(rnd(Math.max(0,BS.x0),W),190+s.sink+rnd(-10,40),rnd(1,2.5),pick([PAL_EN,PAL_HOT]),true);
     if(s.deadT>4.6)dnEscapeEnd(true);}}
-function dnEscapeDestroyed(){const s=DN.esc;s.dead=true;s.deadT=0;banner('Dreadnought destroyed!',4);eb.length=0;
-  const b=BS.bridge;if(b&&!b.dead){for(let i=0;i<14;i++)later(i*0.08,()=>{explode(b.x+rnd(-60,60),b.y+rnd(-70,60),rnd(1.5,3),pick([PAL_EN,PAL_HOT]),i%3!==0);if(i%2===0)spawnFrag(b,b.x+rnd(-50,50),b.y+rnd(-60,50),true);});later(1.15,()=>{b.dead=true;explode(b.x,b.y,5,b.pal);});}
-  for(const q of enemies)if(!q.dead&&!q.dying&&q.type.startsWith('bs_')&&q!==b){explode(q.x,q.y,1.2,PAL_HOT,true);q.dead=true;}
-  for(let i=0;i<20;i++)later(0.1*i,()=>{explode(rnd(0,W),185+rnd(-10,40),rnd(1.5,3),pick([PAL_EN,PAL_HOT]),i%3!==0);trauma=Math.max(trauma,0.5);});
+// exhaust bursts: a nozzle brightens and flickers (the warning), then blasts a long flame back at you
+function dnEngineFlares(dt){const s=DN.esc,f=Math.min(1,s.dmg/s.max),ys=nzYs(),ex=BS.x0+NZX;
+  s.nzT-=dt*DF.fire;if(s.nzT<=0)inStream('escnz',()=>{s.nzT=rnd(1.5,2.1)*(1-0.2*f);const idle=[0,1,2].filter(i=>s.nz[i].st==='idle'),n=Math.min(idle.length,f>0.5?2:1);
+    for(let k=0;k<n;k++){const i=idle.splice((Math.random()*idle.length)|0,1)[0];s.nz[i].st='tell';s.nz[i].t=0.7;}});
+  s.nz.forEach((z,i)=>{z.t-=dt;z.hit-=dt;
+    if(z.st==='tell'&&z.t<=0){z.st='burst';z.t=0.9;if(!sx('door-blast',0.5,1.3))noiseHit(0.4,0.3,900,120);shake(0.12);}
+    else if(z.st==='burst'){if(z.t<=0)z.st='idle';
+      else if(pl.alive&&z.hit<=0&&pl.x>ex-ESC.flame&&pl.x<ex+6&&Math.abs(pl.y-ys[i])<9){z.hit=0.7;playerDamage(22);}}});}
+function dnEscapeDestroyed(){const s=DN.esc;s.dead=true;s.deadT=0;s.splitSX=clamp(W/2-BS.x0,160,SHIPLEN-160);banner('Dreadnought destroyed!',4);eb.length=0;
+  const ex=BS.x0+NZX;for(let i=0;i<10;i++)later(i*0.08,()=>explode(ex+rnd(0,80),rnd(190,262),rnd(1.5,3),pick([PAL_EN,PAL_HOT]),i%3!==0));
+  for(const q of enemies)if(!q.dead&&!q.dying&&q.type.startsWith('bs_')){if(q.x>-60&&q.x<W+60)explode(q.x,q.y,1.2,PAL_HOT,true);q.dead=true;}
+  for(let i=0;i<20;i++)later(0.1*i,()=>{explode(rnd(Math.max(0,BS.x0),W),185+rnd(-10,40),rnd(1.5,3),pick([PAL_EN,PAL_HOT]),i%3!==0);trauma=Math.max(trauma,0.5);});
   whiteFlash=0.6;flashCol='255,200,140';rumble(1,1,1500,true);FB.kick=2;}
 function dnEscapeEnd(dest){const s=DN.esc;if(s.end)return;s.end=true;
   const f=Math.min(1,s.dmg/s.max),dmgB=Math.round(f*100000/100)*100,bon=dmgB+(dest?200000:0);G.score+=bon;
   if(!dest)banner('The Dreadnought escaped',2.6);
   later(dest?0:2.6,()=>{if(G.state!=='play')return;banner(dest?'Damage bonus '+dmgB+'   Destroyed +200000':'Damage bonus '+dmgB,2.8);
     later(2.8,()=>{if(G.state!=='play')return;if(G.practice)practiceDone();else{stageClearNow();later(0.6,()=>{if(!say('stageClear',3))sfx.clear();});}});});}
+// player shots during the escape: anything on the ship counts; the engine nozzles count most
 function escHit(b){const s=DN.esc;if(!s||s.dead||s.end||b.k==='drop')return false;const t=hullTop(b.x);if(t>=H||b.y<t-6)return false;
   if(b.pierce){if(b.pierce.has(BS))return false;b.pierce.add(BS);}else b.dead=true;
-  const sx=b.x-BS.x0,br=Math.abs(sx-BRIDGE_SX)<BSM.bridge.w/2;s.dmg+=b.dmg*(br?1:0.6);
-  P(1,b.x,b.y,rnd(-200,-60),rnd(-120,60),0.18,1.5,0,pick([C.gold,C.white,C.ember]),5);hitSound(b.k==='beam'?'pulse':b.k);
-  const q=BS.bridge;if(br&&q&&!q.dead){q.flash=0.045;s.acc=(s.acc||0)+b.dmg;if(s.acc>3){s.acc=0;spawnFrag(q,b.x,b.y,false);}}
+  const sx=b.x-BS.x0,eng=s.ph==='creep'&&sx<NZX+50&&nzYs().some(y=>Math.abs(b.y-y)<12);s.dmg+=b.dmg*(eng?1.5:(s.ph==='creep'&&sx<90)?1:0.6);   // nozzles 1.5x, the rest of the engine end 1x, elsewhere 0.6x
+  P(1,b.x,b.y,rnd(-200,-60),rnd(-120,60),0.18,1.5,0,pick(eng?[C.white,C.gold]:[C.gold,C.ember]),5);if(eng)P(0,b.x,b.y,0,0,0.1,9,3,C.gold);hitSound(b.k==='beam'?'pulse':b.k);
   return !b.pierce;}
 function drawEscBar(){const s=DN.esc;if(!s||s.end||s.dead||G.state!=='play')return;const f=Math.max(0,1-s.dmg/s.max);
   ctx.fillStyle='rgba(255,61,110,.2)';ctx.fillRect(W/2-100,24,200,4);ctx.fillStyle=C.hot;ctx.fillRect(W/2-100,24,200*f,4);ctx.globalAlpha=0.8;centerText('Dreadnought',33,8,C.hot);ctx.globalAlpha=1;}
-function drawEscFlames(){const s=DN.esc;if(!s||s.dead||!BS.on)return;const x=BS.x0+SHIPLEN-8;if(x<-60||x>W+60)return;const k=Math.min(1,s.v/80);
+// engine exhaust while it runs: short flames at rest, a bright flicker as a warning, then a long blast
+function drawEscFlames(){const s=DN.esc;if(!s||s.dead||!BS.on)return;const ex=BS.x0+NZX;if(ex<-200||ex>W+60)return;const ys=nzYs(),k=Math.min(1,s.v/120);
   ctx.save();ctx.globalCompositeOperation='lighter';
-  for(const fy of [0.3,0.53,0.76]){const y=STERNY+BSM.stern.h*fy,l=(24+80*k)*(0.85+0.3*Math.random());
-    ctx.globalAlpha=0.6;ctx.drawImage(glow(C.ember),x-8,y-12,l,24);ctx.globalAlpha=0.8;ctx.drawImage(glow(C.gold),x-6,y-6,l*0.6,12);ctx.globalAlpha=0.9;ctx.drawImage(glow(C.white),x-4,y-3,l*0.3,6);}
+  s.nz.forEach((z,i)=>{const y=ys[i],burst=z.st==='burst',tell=z.st==='tell',tk=tell?1-z.t/0.7:0,fk=0.85+0.3*Math.random();
+    const l=(burst?ESC.flame:tell?22+26*tk:18+20*k)*fk,h=burst?11:tell?7:5;
+    ctx.globalAlpha=burst?0.8:0.6;ctx.drawImage(glow(C.ember),ex-l,y-h*1.6,l+8,h*3.2);ctx.globalAlpha=0.85;ctx.drawImage(glow(C.gold),ex-l*0.75,y-h,l*0.75+6,h*2);
+    ctx.globalAlpha=burst?0.95:0.7;ctx.drawImage(glow(C.white),ex-l*0.4,y-h*0.5,l*0.4+4,h);
+    if(tell){ctx.globalAlpha=0.5+0.5*Math.sin(G.t*45);const r=8+10*tk;ctx.drawImage(glow(C.white),ex-r,y-r,r*2,r*2);}});
   ctx.restore();}
-// the hull, its deck pieces and the cover blocks; once destroyed the ship snaps in two at the bridge and sinks
+// the hull, its deck pieces and the cover blocks; once destroyed the ship snaps in two and sinks
 function dnHullDraw(){const s=DN.esc;if(!s||!s.dead){drawHull();drawDNHull();drawBlocks();drawEscFlames();return;}
-  const sp=BS.x0+BRIDGE_SX-BSM.bridge.w*0.2,py=200;
+  const sp=BS.x0+s.splitSX,py=200;
   for(const side of [-1,1]){ctx.save();ctx.beginPath();if(side<0)ctx.rect(-80,-80,sp+80,H+300);else ctx.rect(sp,-80,W+160,H+300);ctx.clip();
-    ctx.translate(sp,py+s.sink*(side<0?1:1.3));ctx.rotate(-side*s.tilt);ctx.translate(-sp,-py);drawHull();drawDNHull();ctx.restore();}}
+    ctx.translate(sp,py+s.sink*(side<0?1.3:1));ctx.rotate(-side*s.tilt);ctx.translate(-sp,-py);drawHull();drawDNHull();ctx.restore();}}
 
 function dnTick(dt){const T=sxClock(DN);
   if(T<DN.HULL){
@@ -1929,11 +1949,11 @@ function updateBullets(dt){
       if(b.y>=groundY(b.x)-2){b.dead=true;dropBoom(b.x,b.y);}
     }else if(b.k==='wave'){b.life-=dt;b.y+=Math.sin(b.ph+(0.95-b.life)*18)*40*dt;if(b.life<=0)b.dead=true;}
     b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x>W+20||b.x<-30||b.y<-20||b.y>H+20)b.dead=true;
-    if(BS.on&&!b.dead&&b.y>hullTopSX(b.x-BS.x0)){   // shots stop on the deck (the bridge tower itself is the target)
+    if(BS.on&&!b.dead&&b.y>hullTopSX(b.x-BS.x0)&&!(DN.esc&&(DN.esc.dead||escHit(b)))){   // shots stop on the deck; during the escape they damage the ship
 b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd(-80,-10),0.15,1.4,0,C.gold,6);}
     if(TUN.on&&!b.dead){const t=tunAt(b.x+G.scroll);if(t&&(b.y<t.ceil||b.y>t.floor)){b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,C.gold,6);}}
     if(DN.eng&&!b.dead&&b.y<dnEngBottom(b.x)){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(10,60),0.15,1.4,0,C.gold,6);}
-    if(BS.on&&!b.dead&&b.y>trowTopSX(b.x-BS.x0)){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-80,-10),0.15,1.4,0,C.gold,6);}
+    if(BS.on&&!b.dead&&b.y>trowTopSX(b.x-BS.x0)&&!(DN.esc&&(DN.esc.dead||escHit(b)))){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-80,-10),0.15,1.4,0,C.gold,6);}
     if(FL.presses.length&&!b.dead)for(const q of FL.presses)if(q.st>=1&&Math.abs(b.x-q.x)<PR_W*0.42&&b.y<q.yb){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,C.gold,6);break;}
     if(HV.walls&&!b.dead&&hvWallHit(b.x,b.y)){b.dead=true;P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,'#9dff3d',6);}
     if(GATE.list.length&&!b.dead&&gateHit(b.x,b.y)){b.dead=true;if(b.k==='drop')dropBoom(b.x,b.y);else P(1,b.x,b.y,rnd(-120,-40),rnd(-60,60),0.15,1.4,0,C.gold,6);}
@@ -2640,7 +2660,7 @@ const GUIDE=[
  [4,'bs_shield','Shield generator','Protects the turrets behind it. Destroy it to open them up.',[]],
  [4,'bs_hatch','Missile hatch','Opens, fires a missile that climbs then homes in, and closes. Can only be hit while open.',['msl']],
  [4,'bs_gun','Main gun','Rises from the deck. It tracks you, locks on (solid red line) and fires a beam: hide behind the deck blocks. Its coils glow while it charges. Hit them then for big damage.',['gbeam','shot'],'Boss'],
- [4,'bs_bridge','Dreadnought bridge','The command tower. Its cannon, lens and rockets fire through the gun fight. When the ship runs, shoot the bridge to break the ship apart before it escapes.',['shot2','msl2'],'Target'],
+ [4,'bs_bridge','Dreadnought bridge','The command tower. Its cannon, lens and rockets fire through the gun fight. Then the ship bolts right: chase it and hit its engines to break it apart.',['shot2','msl2'],'Target'],
  [5,'drone','Rivet drone','Robot drone that weaves in lines and fires rivets on harder settings.',['shot','ram'],0,'r_drone'],
  [5,'swarm','Spark swarmer','Small robots in tight formations that throw sparks at you.',['shot','ram'],0,'r_swarm'],
  [5,'gunner','Riveter gunship','Holds its position and fires rivets at you.',['shot','ram'],0,'r_gunship'],
@@ -3214,7 +3234,8 @@ const NT=11,BOWW=BSM.bow.w,TILEW=BSM.tile.w,STERN0=BOWW+NT*TILEW,SHIPLEN=STERN0+
 const BRIDGE_SX=4257,BRIDGE_STOP_X=W-130;   // the ship stops with the bridge on screen exactly as the stage music ends
 const BS={on:false,done:false,s:0,x0:W+40,stop:false,started:0,music:false,warned:false,fight:false,scorch:[]};
 function isBattle(){return G.stage===4&&G.state!=='title'&&G.state!=='name';}
-function hullTopSX(sx){          // top of the hull at ship coordinate sx (y), or H+50 where there is no hull
+function hullTopSX(sx){return hullTopRaw(SHIPLEN-1e-3-sx);}   // the ship is mirrored: engines (stern) at the left end, bow at the right
+function hullTopRaw(sx){          // top of the unmirrored hull at ship coordinate sx (y), or H+50 where there is no hull
   let prof,y0,lx;
   if(sx<0||sx>=SHIPLEN)return H+50;
   if(sx<BOWW){prof=BSP.bow;y0=BOWY;lx=sx;}
@@ -3318,9 +3339,11 @@ function drawHull(){
   if(!BS.on||!BSI.tile)return;const x0=BS.x0;ctx.imageSmoothingEnabled=true;
   if(x0+SHIPLEN<-10||x0>W+10)return;
   // hull pieces
-  if(BSI.bow&&x0+BOWW>-5&&x0<W+5)ctx.drawImage(BSI.bow,x0,BOWY,BOWW,BSM.bow.h);
-  for(let i=0;i<NT;i++){const x=x0+BOWW+i*TILEW;if(x+TILEW<-5||x>W+5)continue;ctx.drawImage(BSI.tile,x-0.5,TILEY,TILEW+1,BSM.tile.h);}
-  if(BSI.stern&&x0+STERN0<W+5)ctx.drawImage(BSI.stern,x0+STERN0,STERNY,BSM.stern.w,BSM.stern.h);
+  // mirrored: engines at the left end, bow at the right end, every piece flipped
+  const fl=(im,x,y,w,h)=>{if(x+w<-5||x>W+5)return;ctx.save();ctx.translate(x+w,y);ctx.scale(-1,1);ctx.drawImage(im,0,0,w,h);ctx.restore();};
+  if(BSI.bow)fl(BSI.bow,x0+SHIPLEN-BOWW,BOWY,BOWW,BSM.bow.h);
+  for(let i=0;i<NT;i++)fl(BSI.tile,x0+SHIPLEN-BOWW-(i+1)*TILEW-0.5,TILEY,TILEW+1,BSM.tile.h);
+  if(BSI.stern)fl(BSI.stern,x0,STERNY,BSM.stern.w,BSM.stern.h);
   // scorch marks where parts were destroyed
   for(const s of BS.scorch){const x=x0+s.sx;if(x<-40||x>W+40)continue;ctx.globalAlpha=0.75;const g=ctx.createRadialGradient(x,s.y,1,x,s.y,s.r);g.addColorStop(0,'rgba(10,6,4,.95)');g.addColorStop(1,'rgba(10,6,4,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,s.y,s.r,0,TAU);ctx.fill();ctx.globalAlpha=1;
     if(Math.random()<0.1*Q)P(2,x+rnd(-4,4),s.y-2,-10,-25,1,2,7,null,0.4);}
@@ -3886,7 +3909,7 @@ function drawSlides(u){
 }
 const BRIEFS={1:['Year 2099. The alien armada has arrived.','Only one pilot stands in their way...','Smash their fleet. Destroy the Mothership!'],2:['The Mothership is down - but the fleet','has fled into the Crystal Caverns!','Find the Crystal Queen. SHATTER HER!'],
   3:['Deep below the caverns, something stirs...','An alien Hive is breeding a new army!','Burn it out. Destroy the Hive Mother!'],
-  4:['The enemy flagship is on the move!','The Dreadnought: a fortress in space.','Fly its hull. Take out the bridge!'],
+  4:['The enemy flagship is on the move!','The Dreadnought: a fortress in space.','Fly its hull. Take out the main gun!'],
   5:['It was never the aliens in control...','The robot overlords pulled the strings!','Storm their base. END THIS WAR!']};
 // a low ambient hum under the briefing, until the next stage's music starts
 function briefPad(on){const ac=A.ctx;if(!ac)return;
