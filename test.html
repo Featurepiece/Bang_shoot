@@ -30,7 +30,7 @@ canvas.px{image-rendering:crisp-edges;image-rendering:pixelated}
 (()=>{
 'use strict';
 const W=480,H=270,SP=2,TAU=Math.PI*2,BOSS_AT=60;
-const GAME_VERSION='3.7';   // shown in Options; goes up by 0.2 with every update pushed to the test page
+const GAME_VERSION='3.9';   // shown in Options; goes up by 0.2 with every update pushed to the test page
 const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[(Math.random()*a.length)|0];
 // ---- fixed stages: seeded random numbers for everything that decides what a stage throws at you ----
 const NATIVE_RANDOM=Math.random,EARLY_WAVES=false;   // true: an empty screen calls the next wave early (makes stages vary with kill speed)
@@ -1026,7 +1026,7 @@ ART.bs_dome={dw:16,dh:12,cr:0,core:[0,0],gc:'#ff7a3d',pal:PAL_EN};ART.bs_core={d
 Object.assign(DEF,{bs_dome:{hp:7,score:500,pw:1.6,drop:0.15},bs_core:{hp:150,score:25000,pw:4,drop:1}});
 function trowTopSX(sx){for(const s of TROWS)if(sx>=s&&sx<s+TROW_W)return hullTopSX(s+TROW_W/2)+22-TROW_H*(1-TROW_DECK);return H+50;}
 function dnLayout(){return {T:[330,640,1060,1260,1560,2700,3250,3500,3800],SG:[880,1420,3380],HT:[520,980,1340,2620,3150,3650,3900,4080]};}
-function dnHullExtras(){DN.blocks=GUN.BLOCKS.map(sx=>({sx,hp:2,fl:0}));for(const s of TROWS)for(const f of TROW_DOMES){const sx=s+f*TROW_W;E('bs_dome',BS.x0+sx,150,{sx,fireT:rnd(1,2.5)});}
+function dnHullExtras(){DN.blocks=[];for(const s of TROWS)for(const f of TROW_DOMES){const sx=s+f*TROW_W;E('bs_dome',BS.x0+sx,150,{sx,fireT:rnd(1,2.5)});}
   const first=!G.seen.coreTip;G.seen.coreTip=1;E('bs_core',BS.x0+RC_SX,150,{sx:RC_SX,tipT:first?6:0,fireT:2.5});}
 function updateDNPart(e,dt,d){
   if(e.type==='bs_dome'){e.y=trowTopSX(e.sx)-5;e.fireT-=dt*DF.fire;
@@ -1058,7 +1058,7 @@ GUNI.base.src='data:image/webp;base64,UklGRrYrAABXRUJQVlA4WAoAAAAQAAAAKwEAcwAAQU
 // piv = how far along the barrel (from the muzzle) it pivots; the gun sits 100 px in front of the bridge, two cover blocks further forward
 const GUN={dw:112,dh:112*116/300,sock:[0.297,0.397],bw:70,bh:70*45/300,coil:[0.377,0.6],piv:0.9,get SX(){return BRIDGE_SX-100;},get BLOCKS(){return [BRIDGE_SX-300,BRIDGE_SX-225];},bkW:28,bkH:27,lock:0.5};
 // escape: damage needed to break the ship apart; the surge (top speed, acceleration, braking) and the creep once the stern reaches you
-const ESC={hp:260,bolt:650,surge:420,brake:700,creep:10,creepX:150,acc:5,flame:150};
+const ESC={hp:420,bolt:650,surge:420,brake:700,creep:8,creepX:150,acc:1.3,flame:150};
 ART.bs_gun={dw:GUN.dw,dh:GUN.dh,cr:8,core:[0,-6],gc:'#ff7a3d',pal:[C.white,'#ff7a3d',C.ember]};
 GUNI.base.onload=()=>{const c=toCanvas(GUNI.base);ART.bs_gun.n=c;ART.bs_gun.w=whiteOf(c);};
 DEF.bs_gun={hp:300,score:60000,boss:true};
@@ -1196,9 +1196,10 @@ function escHit(b){const s=DN.esc;if(!s||s.dead||s.end||b.k==='drop')return fals
 function drawEscBar(){const s=DN.esc;if(!s||s.end||s.dead||G.state!=='play')return;const f=Math.max(0,1-s.dmg/s.max);
   ctx.fillStyle='rgba(255,61,110,.2)';ctx.fillRect(W/2-100,24,200,4);ctx.fillStyle=C.hot;ctx.fillRect(W/2-100,24,200*f,4);ctx.globalAlpha=0.8;centerText('Dreadnought',33,8,C.hot);ctx.globalAlpha=1;}
 // engine exhaust while it runs: short flames at rest, a bright flicker as a warning, then a long blast
-function drawEscFlames(){const s=DN.esc;if(!s||s.dead||!BS.on)return;const ex=BS.x0+NZX;if(ex<-200||ex>W+60)return;const ys=nzYs(),k=Math.min(1,s.v/120);
+const IDLE_NZ=[{st:'idle'},{st:'idle'},{st:'idle'}];
+function drawEscFlames(){const s=DN.esc;if(!BS.on||(s&&s.dead))return;const ex=BS.x0+NZX;if(ex<-200||ex>W+60)return;const ys=nzYs(),k=s?Math.min(1,s.v/120):0.35,nz=s?s.nz:IDLE_NZ;
   ctx.save();ctx.globalCompositeOperation='lighter';
-  s.nz.forEach((z,i)=>{const y=ys[i],burst=z.st==='burst',tell=z.st==='tell',tk=tell?1-z.t/0.7:0,fk=0.85+0.3*Math.random();
+  nz.forEach((z,i)=>{const y=ys[i],burst=z.st==='burst',tell=z.st==='tell',tk=tell?1-z.t/0.7:0,fk=0.85+0.3*Math.random();
     const l=(burst?ESC.flame:tell?22+26*tk:18+20*k)*fk,h=burst?11:tell?7:5;
     ctx.globalAlpha=burst?0.8:0.6;ctx.drawImage(glow(C.ember),ex-l,y-h*1.6,l+8,h*3.2);ctx.globalAlpha=0.85;ctx.drawImage(glow(C.gold),ex-l*0.75,y-h,l*0.75+6,h*2);
     ctx.globalAlpha=burst?0.95:0.7;ctx.drawImage(glow(C.white),ex-l*0.4,y-h*0.5,l*0.4+4,h);
@@ -2659,7 +2660,7 @@ const GUIDE=[
  [4,'bs_turret','Deck turret','Twin-barrel turret on the deck. Shielded while a shield generator in front of it still stands.',['shot']],
  [4,'bs_shield','Shield generator','Protects the turrets behind it. Destroy it to open them up.',[]],
  [4,'bs_hatch','Missile hatch','Opens, fires a missile that climbs then homes in, and closes. Can only be hit while open.',['msl']],
- [4,'bs_gun','Main gun','Rises from the deck. It tracks you, locks on (solid red line) and fires a beam: hide behind the deck blocks. Its coils glow while it charges. Hit them then for big damage.',['gbeam','shot'],'Boss'],
+ [4,'bs_gun','Main gun','Rises from the deck. It tracks you, locks on (solid red line) and fires a beam: get out of its line. Its coils glow while it charges. Hit them then for big damage.',['gbeam','shot'],'Boss'],
  [4,'bs_bridge','Dreadnought bridge','The command tower. Its cannon, lens and rockets fire through the gun fight. Then the ship bolts right: chase it and hit its engines to break it apart.',['shot2','msl2'],'Target'],
  [5,'drone','Rivet drone','Robot drone that weaves in lines and fires rivets on harder settings.',['shot','ram'],0,'r_drone'],
  [5,'swarm','Spark swarmer','Small robots in tight formations that throw sparks at you.',['shot','ram'],0,'r_swarm'],
@@ -3231,7 +3232,7 @@ Object.assign(DEF,{bs_turret:{hp:16,score:800,pw:2,drop:0.3},bs_hatch:{hp:6,scor
   bs_shield:{hp:22,score:1500,pw:2.4,drop:0.6},bs_bridge:{hp:700,score:60000,boss:true}});
 // ship layout (ship coordinates, world units from the tip of the bow)
 const NT=11,BOWW=BSM.bow.w,TILEW=BSM.tile.w,STERN0=BOWW+NT*TILEW,SHIPLEN=STERN0+BSM.stern.w,TILEY=168.5,BOWY=172.2,STERNY=170.5;
-const BRIDGE_SX=4257,BRIDGE_STOP_X=W-130;   // the ship stops with the bridge on screen exactly as the stage music ends
+const BRIDGE_SX=4317,BRIDGE_STOP_X=W-70;   // the ship stops with the bridge on screen exactly as the stage music ends
 const BS={on:false,done:false,s:0,x0:W+40,stop:false,started:0,music:false,warned:false,fight:false,scorch:[]};
 function isBattle(){return G.stage===4&&G.state!=='title'&&G.state!=='name';}
 function hullTopSX(sx){return hullTopRaw(SHIPLEN-1e-3-sx);}   // the ship is mirrored: engines (stern) at the left end, bow at the right
